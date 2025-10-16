@@ -1,0 +1,1110 @@
+<!--
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<html lang="en">
+
+<head>
+<title>Wolfinch Trading Bot</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet"
+	href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/css/bootstrap.min.css">
+<script
+	src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script
+	src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.0/js/bootstrap.min.js"></script>
+</head>
+
+<link href="stylesheet.css" rel="stylesheet">
+<script
+	src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<script
+	src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
+	integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1"
+	crossorigin="anonymous"></script>
+
+
+<link rel="stylesheet" type="text/css"
+	href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css">
+
+<script type="text/javascript" charset="utf8"
+	src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.js"></script>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<script src="js/techan.min.js"></script>
+
+<script>
+	var table;
+	var exchanges;
+	var active_exch = "";
+	var active_market = "";
+	$(document).ready(function() {
+
+		console.log("load stats");
+
+		load_exch_data(init_charting);
+	});
+
+	// exch/market selector - start
+	function exch_onclick(obj) {
+		console.log("onclick " + this.id);
+
+		active_exch = this.text;
+		var btn = document.getElementById("exch_btn_id");
+		btn.innerHTML = active_exch + ' <span class="caret"></span>';
+
+		load_markets_dd();
+	}
+
+	function market_onclick(obj) {
+		console.log("onclick " + this.id);
+
+		active_market = this.text;
+		var btn = document.getElementById("markets_btn_id");
+		btn.innerHTML = active_market + ' <span class="caret"></span>';
+
+		// TODO: FIXME: jork: do rest of logic
+		// call api to buy/sell
+		var data = {};
+		data[active_exch] = active_market;
+		console.log("post data:" + active_exch, active_market);
+		$.ajax({
+			type : 'POST',
+			url : '/api/set_active_market',
+			data : data,
+			dataType : 'json',
+			success : function(data) {
+				console.log("set_active_market success!" + data);
+			},
+			error : function(xhr, error) {
+				console.log("set_active_market failed!");
+			}
+		});
+	}
+
+	function load_exchanges_dd() {
+		var list = document.getElementById("exchangesDdId");
+
+		Object.keys(exchanges).forEach(function(exch_name) {
+			console.log("loading " + exch_name);
+			var li = document.createElement("li");
+			var link = document.createElement("a");
+			var text = document.createTextNode(exch_name);
+			link.appendChild(text);
+			link.href = "#";
+			link.id = "li_exch_id_" + exch_name;
+			link.onclick = exch_onclick;
+			li.appendChild(link);
+			list.appendChild(li);
+		});
+
+		var btn = document.getElementById("exch_btn_id");
+		if (active_exch != undefined && active_exch != "") {
+			console.log("setting active exch " + active_exch);
+			btn.innerHTML = active_exch + ' <span class="caret"></span>';
+		} else {
+			btn.innerHTML = 'Exchange <span class="caret"></span>';
+		}
+	}
+
+	function load_markets_dd() {
+		console.log("load_markets_dd active_exch:" + active_exch);
+
+		markets_l = exchanges[active_exch]
+		var list = document.getElementById("marketsDdId");
+
+		if (markets_l == undefined) {
+			console.log("no active exchange set");
+			return;
+		}
+
+		while (list.hasChildNodes()) {
+			console.log("purge old node - " + list.firstChild.innerText);
+			list.removeChild(list.firstChild);
+		}
+
+		markets_l.forEach(function(market) {
+			console.log("loading " + market["product_id"]);
+			var li = document.createElement("li");
+			var link = document.createElement("a");
+			var text = document.createTextNode(market["product_id"]);
+			link.appendChild(text);
+			link.href = "#";
+			link.id = "li_exch_id_" + market["product_id"];
+			link.onclick = market_onclick;
+			li.appendChild(link);
+			list.appendChild(li);
+		});
+
+		if (active_market != undefined && active_market != "") {
+			var btn = document.getElementById("markets_btn_id");
+
+			console.log ("active_market: "+active_market+markets_l);
+			
+			btn.innerHTML = 'Market <span class="caret"></span>';			
+			markets_l.forEach(function(market) {
+				if (market["product_id"] == active_market) {
+					btn.innerHTML = active_market + ' <span class="caret"></span>';					
+				}
+			});
+		}
+	}
+
+	function load_exch_data(exch_cb) {
+		console.log("loading exchanges and markets");
+		// call api to buy/sell
+		$.ajax({
+			type : 'GET',
+			url : '/api/get_markets',
+			dataType : 'json',
+			success : function(data) {
+				console.log("get_markets success!" + data);
+				exchanges = data["all"];
+				if (data["active"]) {
+					active_exch = data["active"]["EXCH_NAME"];
+					active_market = data["active"]["PRODUCT_ID"];
+					paused = data["active"]["PAUSED"];
+					
+					console.log("active exhc:" + active_exch + " markt: "
+							+ active_market+" paused: "+paused);
+				}
+				load_exchanges_dd();
+				load_markets_dd();
+
+				if (exch_cb) {					
+					exch_cb();
+				}
+			},
+			error : function(xhr, error) {
+				console.log("get_markets failed!");
+				alert(error);
+			}
+		});
+
+	}
+	// exch/market selector - done
+
+	var g_big_data = {
+		name : "BTC-USD",
+		indicator_plots : [],
+		indicator_lines : [],	
+		indicators: {ohlc: []},
+		positions : [],
+		preroll : 0
+	};
+
+	var g_big_chart;
+
+	function init_charting() {
+		console.log("ready!");
+		g_big_data.name = active_market;
+
+		g_big_chart = BigChart();
+
+		window.onresize = function() {
+			d3.select('#chart').call(g_big_chart.resize);
+		};
+
+		console.log("load stats");
+		loadPositions();
+		setTimeout(loadCandles, 1000);
+		//setInterval(loadPositions, 120000);
+		//setInterval(loadCandles, 120000);
+	}
+
+	var dateFormat = d3.timeFormat("%c"), valueFormat = d3.format(',.4f');
+
+	var parseDate = function(utcSeconds) {
+		var d = new Date(0); // The 0 there is the key, which sets the date to the epoch
+		d.setUTCSeconds(utcSeconds);
+		return d;
+	}
+
+	function loadPositions() {
+		console.log("load positions");
+		$.ajax({
+			type : 'GET',
+			url : '/api/positions',
+			data : {
+				from_time : 0,
+				to_time: 0,
+				exch_name : active_exch,
+				product : active_market
+			},
+			dataType : 'json',
+			success : load_trades,
+			error : function(xhr, error) {
+				console.log("get positions failed!"+error+xhr);
+			}			
+		});
+	}
+
+	function loadCandles() {
+		console.log("load candles");
+		$.ajax({
+			type : 'GET',
+			url : '/api/candles',
+			data : {
+				period: g_chart_period,
+				start_time : g_chart_start_time,
+				exch_name : active_exch,
+				product : active_market
+			},
+			dataType : 'json',
+			success : load_candles,
+			error : function(xhr, error) {
+				console.log("get candles failed!"+error+xhr);
+			}			
+		});
+	}
+
+	function load_trades(data) {
+		var trades = [];
+
+		console.log("positions data len: " + data.length);
+		for (var i = 0; i < data.length; i++) {
+			d = data[i];
+
+			if (d.closed_time && d.closed_time != "None") {
+				//console.log ("closed_time: "+d.closed_time+" price:"+d.sell.price)
+				trades.push({
+					date : d3.isoParse(d.closed_time),
+					type : "sell",
+					price : d.sell.price,
+					low : d.sell.price,
+					high : d.sell.price
+				});
+			}
+
+			if (d.open_time && d.open_time != "None") {
+				//console.log ("open_time: "+d.open_time+" price:"+d.buy.price)
+				trades.push({
+					date : d3.isoParse(d.open_time),
+					type : "buy",
+					price : d.buy.price,
+					low : d.buy.price,
+					high : d.buy.price
+				});
+			}
+		}
+
+		g_big_data.positions = trades;
+	}
+
+	function load_candles(data) {
+
+		//var accessor = candlestick.accessor();
+
+		console.log("candles data len: " + data.length);
+
+		//data = data.slice(data.length - 201, data.length - 1);
+		
+		
+		data = data.sort(function(a, b) {
+			return d3.ascending(a['ohlc'].time, b['ohlc'].time);
+		});
+
+		if (!data.length) {
+			return;
+		}
+
+		//create indicators lists
+		// normalize OBV(2, 4) => OBV24
+		regexp = /[\s\(\),]/g;
+		 
+		g_big_data.indicator_plots = [],
+			g_big_data.indicator_lines = [],	
+			g_big_data.indicators = {ohlc: []},
+			g_big_data.preroll = 0;
+	
+		d = data[0];
+		Object.keys(d).forEach(function(key) {
+			console.log ("indiactor_name:"+key);
+			
+			if (key.toLowerCase().indexOf("ohlc") != -1 ) {
+				///g_big_data.indicator_plots [key.replace(regexp, '')] = "candlestick";	
+				console.log ("skip candlestick");
+			} else if ((key.toLowerCase().indexOf("rsi") != -1 ) || 
+					(key.toLowerCase().indexOf("mfi") != -1) ||
+					(key.toLowerCase().indexOf("vosc") != -1) ||
+					(key.toLowerCase().indexOf("vemaosc") != -1) ||					
+					(key.toLowerCase().indexOf("atr") != -1 ) ||
+					(key.toLowerCase().indexOf("obv") != -1)) {
+				g_big_data.indicator_plots [key.replace(regexp, '')] = "rsi";
+			} else if (key.toLowerCase().indexOf("macd") != -1) {
+				// Add supported indicators to plot in separate pane				
+				g_big_data.indicator_plots [key.replace(regexp, '')] = "macd";				
+			} /* else if (key.toLowerCase().indexOf("atr") != -1 ) {
+				console.log("atr freestyle plot");
+				g_big_data.indicator_plots [key.replace(regexp, '')] = "atr";				
+			} */ else {
+				// overlay lines
+				if (key != "close"){
+					g_big_data.indicator_lines.push(key.replace(regexp, ''));
+				}
+			}
+			
+			g_big_data.indicators[key.replace(regexp, '')] = [];
+			
+		});
+		
+		// Candles Indicator Values 
+		data = data.map(function(dd) {
+			d = dd['ohlc'];
+			var date = parseDate(d.time);
+			g_big_data.indicators['ohlc'].push({
+				date : date,
+				open : +d.open,
+				high : +d.high,
+				low : +d.low,
+				close : +d.close,
+				volume : +d.volume
+			});
+			
+			Object.keys(dd).forEach(function(key) {
+				//console.log ("date:"+date);
+				if (key.toLowerCase().indexOf("macd") != -1) {
+					// MACD
+					g_big_data.indicators[key.replace(regexp, '')].push({	
+						//TODO: fixme: FIXME:
+					  date: date,
+					  macd: dd[key],
+					  zero: 50,
+					  signal: 70,
+					  difference: 20
+					});
+				} else if (key.toLowerCase().indexOf("rsi") != -1) {
+					// RSIs
+					g_big_data.indicators[key.replace(regexp, '')].push({					
+					  date: date,
+					  rsi: dd[key],
+					});
+				} else if ((key.toLowerCase().indexOf("vosc") != -1) ||
+						(key.toLowerCase().indexOf("vemaosc") != -1)){
+					// Mimic Vosc plot with RSI plot as techan doesn't support VOSC out of the box
+					g_big_data.indicators[key.replace(regexp, '')].push({					
+					  date: date,
+					  rsi: dd[key],
+					});
+				} else if (key.toLowerCase().indexOf("mfi") != -1) {
+					// Mimic MFI plot with an RSI style plot
+					g_big_data.indicators[key.replace(regexp, '')].push({					
+					  date: date,
+					  rsi: dd[key],
+					});
+ 				}  else if (key.toLowerCase().indexOf("atr") != -1) {
+					// Mimic ATR plot with an RSI style plot
+					g_big_data.indicators[key.replace(regexp, '')].push({					
+					  date: date,
+					  rsi: dd[key],
+					}); 
+				}   else if (key.toLowerCase().indexOf("obv") != -1) {
+					// Mimic OBV plot with an RSI style plot
+					g_big_data.indicators[key.replace(regexp, '')].push({					
+					  date: date,
+					  rsi: dd[key],
+					}); 
+				} else if (key.toLowerCase().indexOf("ohlc") == -1) {
+					// all other indicators except ohlc
+					d = dd[key];
+					g_big_data.indicators[key.replace(regexp, '')].push({date: date, value: d});
+				}
+			});
+		});
+
+		// normalize
+		function getMinRsi(data ){
+			  return data.reduce((min, b) => Math.min(min, b.rsi), data[0].rsi);
+			}
+		function getMaxRsi(data){
+			  return data.reduce((max, b) => Math.max(max, b.rsi), data[0].rsi);
+			}
+		
+		Object.keys(g_big_data.indicators).forEach(function(key) {
+			var data = g_big_data.indicators[key];
+			
+			if ((key.toLowerCase().indexOf("rsi") != -1) ||
+					(key.toLowerCase().indexOf("obv")  != -1) || 					
+					(key.toLowerCase().indexOf("atr")  != -1) || 					
+					(key.toLowerCase().indexOf("mfi")  != -1) ) {
+				min = getMinRsi(data);
+				max = getMaxRsi(data);
+				console.log ("key "+key+" min "+min+" max "+max);
+				
+				data.forEach (function addMinMaxRsi (di) {
+					di.overbought = max;
+					di.oversold = min;
+					di.middle = (max+min)/2
+					});
+			} else if ((key.toLowerCase().indexOf("vosc")  != -1) || 
+					(key.toLowerCase().indexOf("vemaosc")  != -1)) {
+				min = getMinRsi(data);
+				max = getMaxRsi(data);
+				console.log ("key "+key+" min "+min+" max "+max);
+				
+				data.forEach (function addMinMaxRsi (di) {
+					di.overbought = max;
+					di.oversold = min;
+					di.middle = 0
+					});
+			} 
+			else if ((key.toLowerCase().indexOf("macd")) != -1) {
+				//do something else
+					console.log ("############## normalize impl. macd ##########");
+			}
+		});
+		//g_big_data.indicators.ohlc = data;
+
+		d3.select("#chart").call(g_big_chart);
+	}
+	
+	function listContains (list, key) {
+		lower = [];
+		for (i=0; i<list.length; i++){
+			if (list[i].toLowerCase().indexOf(key) != -1) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	function BigChart() {
+	    var dim = {
+	    	      width: null, height: null,
+	    	      margin: { top: 25, right: 50, bottom: 25, left: 50 },
+	    	      plot: { width: null, height: null },
+	    	      ohlc: { height: null },
+	    	      indicator: { height: null, padding: null, top: null, bottom: null }
+	    	    };
+
+		var x = techan.scale.financetime();
+		var y = d3.scaleLinear();
+   	    var yPercent = y.copy(),
+   	        indicatorTop = d3.scaleLinear(),
+   	        yVolume = d3.scaleLinear(),
+   	        candlestick = techan.plot.candlestick().xScale(x).yScale(y),   	     	
+   	        volume = techan.plot.volume().accessor(candlestick.accessor()).xScale(x).yScale(yVolume),
+   	        xAxis = d3.axisBottom(x),
+   	        xAxisTop = d3.axisTop(x),
+   	        timeAnnotation = techan.plot.axisannotation().orient('bottom').axis(xAxis).format(d3.timeFormat('%Y-%m-%d')).width(65),
+   	        timeAnnotationTop = techan.plot.axisannotation().orient('top').axis(xAxisTop).format(d3.timeFormat('%Y-%m-%d')).width(65),
+   	        yAxis = d3.axisRight(y),
+   	        ohlcAnnotation = techan.plot.axisannotation().orient('right').axis(yAxis).format(d3.format(',.2f')),
+   	        closeAnnotation = techan.plot.axisannotation().orient('right').accessor(candlestick.accessor()).axis(yAxis).format(d3.format(',.2f')),
+   	        percentAxis = d3.axisLeft(yPercent).tickFormat(d3.format('+.1%')),
+   	        percentAnnotation = techan.plot.axisannotation().orient('left').axis(percentAxis),
+   	        volumeAxis = d3.axisRight(yVolume).ticks(3).tickFormat(d3.format(',.3s')),
+   	        volumeAnnotation = techan.plot.axisannotation().orient('right').axis(volumeAxis).width(35),
+   	        ohlcCrosshair = techan.plot.crosshair().xScale(x).yScale(y).xAnnotation([timeAnnotation, timeAnnotationTop])
+   	        				.yAnnotation([ohlcAnnotation, percentAnnotation, volumeAnnotation]);
+   	    var ohlcIndicatorAnnotation = techan.plot.axisannotation()
+    	    .axis(yAxis)//.accessor(candlestick.accessor())
+        	.orient('right').format(d3.format(',.2f'))
+        	.width(32);
+
+   	    // trendline = techan.plot.trendline().xScale(x).yScale(y),
+   	       // supstance = techan.plot.supstance().xScale(x).yScale(y).annotation([ohlcAnnotation, percentAnnotation]);
+		var yInit, yPercentInit, zoomableInit;
+		
+		function zoomed() {
+
+			console.log("zoomed");
+	        var rescaledY = d3.event.transform.rescaleY(y);
+	        yAxis.scale(rescaledY);
+	        candlestick.yScale(rescaledY);
+
+	        // Emulates D3 behaviour, required for financetime due to secondary zoomable scale
+	        x.zoomable().domain(d3.event.transform.rescaleX(zoomableInit).domain());
+			
+			y.domain(d3.event.transform.rescaleY(yInit).domain());
+			yPercent.domain(d3.event.transform.rescaleY(yPercentInit).domain());
+
+			draw(d3.select("#chart"));
+		}
+
+		var zoom = d3.zoom().on("zoom", zoomed);
+
+		var tradearrow = techan.plot.tradearrow().xScale(x).yScale(y).y(
+				function(d) {
+					//console.log ("trade arrow "+d);
+					// Display the buy and sell arrows a bit above and below the price, so the price is still visible
+					if (d.type === 'buy')
+						return y(d.low) + 5;
+					if (d.type === 'sell')
+						return y(d.high) - 5;
+					else
+						return y(d.price);
+				}).orient(function(d) {
+			return d.type.startsWith("buy") ? "up" : "down";
+		}).on("mouseenter", enter).on("mouseout", out);
+
+		function enter(d) {
+			console.log ("enter");			
+	        valueText.style("display", "inline");
+			refreshText(d);
+		}
+
+		function out() {
+			console.log ("out");
+	        valueText.style("display", "none");
+		}
+
+		function refreshText(d) {
+			console.log ("refresh");			
+	        valueText.text("Trade: " + dateFormat(d.date) + ", " + d.type + ", " + valueFormat(d.price))
+	        .attr("x", dim.plot.width - 5)
+		  	.attr("y", 15);
+		}
+
+		////////////// TODO: generic, add more supported indicators here to plot.
+
+		function lineenter(d) {
+			console.log ("line enter");			
+	        valueText.style("display", "inline");
+			refreshText(d);
+		}
+
+		function lineout() {
+			console.log ("line out");
+	        valueText.style("display", "none");
+		}
+
+		function linerefreshText(d) {
+			console.log ("line refresh");			
+	        valueText.text("Trade: " + dateFormat(d.date) + ", " + d.type + ", " + valueFormat(d.price));
+		}
+
+		var ind_line = techan.plot.sma().xScale(x).yScale(y);
+		//.on("mouseenter", lineenter).on("mouseout", lineout);		
+		
+		console.log ("check and declare plots");
+
+     		yScale = [];
+     		indi_plot = [];
+     		Axis = [];
+     		Annotation = [];
+     		AxisLeft = [];
+     		AnnotationLeft = [];
+     		Crosshair = [];
+     		
+		////////////////////
+	    
+  function bigchart(selection) {
+		var ohlc_list = g_big_data.indicators.ohlc;
+
+		if (ohlc_list.length == 0)
+			return;	    	
+
+      var svg = selection.select("svg")      
+		if (svg.node() != null) {
+			console.log("remove old svg");
+			svg.remove();
+		}      
+      
+      var svg = selection.append("svg"),
+      defs = svg.append("defs");
+      
+
+      defs.append("clipPath")
+          .attr("id", "ohlcClip")
+        .append("rect")
+          .attr("x", 0)
+          .attr("y", 0);
+
+/*       defs.append("clipPath")
+          .attr("id", "supstanceClip")
+        .append("rect")
+          .attr("x", -dim.margin.left)
+          .attr("y", 0);
+ */
+      defs.selectAll(".indicatorClip").data(d3.range(Object.keys(g_big_data.indicator_plots).length))
+        .enter()
+        .append("clipPath")
+          .attr("id", function(d, i) { return "indicatorClip-" + i; })
+          .attr("class", "indicatorClip")
+        .append("rect")
+          .attr("x", 0);
+
+      svg = svg.append("g")
+        .attr("class", "chart")
+        .attr("transform", "translate(" + dim.margin.left + "," + dim.margin.top + ")");
+
+      svg.append('text')
+        .attr("class", "symbol")
+        .attr("x", 5)
+        .attr("y", 15)
+        .text(g_big_data.name);   
+
+ 	  valueText = svg.append('text')
+ 	 	.style("text-anchor", "end")
+	  	.attr("class", "coords")
+	  	.attr("x", dim.plot.width - 5)
+	  	.attr("y", 15);
+	          
+      
+      svg.append("g")
+        .attr("class", "x axis bottom");
+
+      svg.append("g")
+        .attr("class", "x axis top");
+
+      var ohlcSelection = svg.append("g")
+        .attr("class", "ohlc")
+        .attr("transform", "translate(0,0)");
+
+      ohlcSelection.append("g")
+          .attr("class", "y axis");
+
+      ohlcSelection.append("g")
+        .attr("class", "closeValue annotation up");
+
+      ohlcSelection.append("g")
+        .attr("class", "volume")
+        .attr("clip-path", "url(#ohlcClip)");
+
+      ohlcSelection.append("g")
+        .attr("class", "candlestick")
+        .attr("clip-path", "url(#ohlcClip)");
+
+      // indicator lines
+      for (i=0; i< g_big_data.indicator_lines.length; i++) {
+			console.log ("add indicator line-"+i);
+	       	var indline = ohlcSelection.append("g")
+	        	.attr("class", "indicator sma ma-"+i)
+	        	.attr("clip-path", "url(#ohlcClip)");
+	       //	ohlcSelection.append("g")
+           // 	.attr("class", "indicator annotation ma-"+i+" up");
+	        svg.append('text')
+	        .attr("class", "ma-"+i)
+	        .attr("x", 5)
+	        .attr("y", 25+i*10)
+	        .text(g_big_data.indicator_lines[i]);	       	
+      }
+      
+      ohlcSelection.append("g")
+        .attr("class", "percent axis");
+
+      ohlcSelection.append("g")
+        .attr("class", "volume axis");
+      
+		var accessor = candlestick.accessor();
+		var indicatorPreRoll = g_big_data.preroll;
+		var postRollData = ohlc_list.slice(indicatorPreRoll); // Don't show where indicators don't have data 
+		x.domain(techan.scale.plot.time(ohlc_list).domain());
+		y.domain(techan.scale.plot.ohlc(postRollData).domain());
+		yPercent.domain(techan.scale.plot.percent(y,
+				accessor(ohlc_list[indicatorPreRoll])).domain());
+		yVolume.domain(techan.scale.plot.volume(postRollData).domain());
+		// Stash for zooming
+		//zoomableInit = x.zoomable().domain(
+		//		[ indicatorPreRoll, data.length ]).copy(); // Zoom in a little to hide indicator preroll
+		zoomableInit = x.zoomable().clamp(false).copy();
+		//zoomableInit = x.copy();
+		yInit = y.copy();
+		yPercentInit = yPercent.copy();
+		x.zoomable().domain([ indicatorPreRoll, ohlc_list.length ]); // Zoom in a little to hide indicator preroll
+
+      // Add trendlines and other interactions last to be above zoom pane
+		svg.append('g').attr("class", "crosshair ohlc");
+		svg.append("g").attr("class", "tradearrow").attr("clip-path",
+					"url(#ohlcClip)");
+
+      svg.select("g.candlestick").datum(ohlc_list).call(candlestick);
+      svg.select("g.closeValue.annotation").datum([ohlc_list[ohlc_list.length - 1] ]).call(closeAnnotation);
+      svg.select("g.volume").datum(ohlc_list).call(volume);
+      
+      svg.select("g.crosshair.ohlc").call(ohlcCrosshair).call(zoom);
+      
+      console.log ("indi selection");
+      ////////// TODO: generic g_big_data.indicator_plots).enter() // svg.selectAll("svg > g.indicator")
+      var indicatorSelection = svg.selectAll("svg > g.indicator")
+      	.data(Object.keys(g_big_data.indicator_plots).filter(function (d) {return (d != "ohlc")})).enter()
+        .append("g")
+        .attr("class", function(d) {
+        	console.log("indi "+d);
+        	return d + " indicator"; });
+
+      indicatorSelection.append("g")
+        .attr("class", "axis right");
+
+      indicatorSelection.append("g")
+        .attr("class", "axis left");
+
+      indicatorSelection.append("g")
+        .attr("class", "indicator-plot")
+        .attr("clip-path", function(d, i) { return "url(#indicatorClip-" + i + ")"; });      
+      svg.select("g.crosshair.ohlc").call(ohlcCrosshair);
+
+  
+      for (key in g_big_data.indicator_plots){
+	        val = g_big_data.indicator_plots[key];
+	        
+		  	yScale[key] = d3.scaleLinear(),	        
+ 	        Axis[key] = d3.axisRight(yScale[key]).ticks(3),
+ 	        Annotation[key] = techan.plot.axisannotation().orient('right').axis(Axis[key]).format(d3.format(',.2s')),
+ 	        AxisLeft[key] = d3.axisLeft(yScale[key]).ticks(3),
+ 	        AnnotationLeft[key] = techan.plot.axisannotation().orient('left').axis(AxisLeft[key]).format(d3.format(',.2s')),
+ 	        Crosshair[key] = techan.plot.crosshair().xScale(x).yScale(yScale[key])
+ 	        		.xAnnotation([timeAnnotation, timeAnnotationTop]).yAnnotation([Annotation[key], AnnotationLeft[key]]);				
+				        
+		    var Data = g_big_data.indicators[key];
+			if (val.toLowerCase().indexOf("rsi") != -1) {
+				console.log("RSI plot");
+//	        	yScale[key].domain(techan.scale.plot.rsi(Data).domain());
+	        	yScale[key].domain([Data[0].oversold, Data[0].overbought]); 		
+	        	indi_plot[key] = techan.plot.rsi().xScale(x).yScale(yScale[key]);
+	      	}
+	      	if (val.toLowerCase().indexOf("macd") != -1) {      
+				console.log("MACD plot");	      		
+			    yScale[key].domain(techan.scale.plot.macd(Data).domain()); 				
+	        	indi_plot[key] = techan.plot.macd().xScale(x).yScale(yScale[key]);			    
+			}
+/* 	      	if (key.toLowerCase().indexOf("atr") != -1) {      
+				console.log("ATR plot");	      		
+			    yScale[key].domain([0,50]);//techan.scale.plot.atr(Data).domain()); 				
+	        	//indi_plot[key] = techan.plot.atr().xScale(x).yScale(yScale[key]);	        	
+			} */	      	
+	      	
+	        svg.append('g').attr("class", "crosshair "+key);	        	
+		    svg.select("g."+key+" .indicator-plot").datum(Data).call(indi_plot[key]);
+	    
+		    svg.select("g.crosshair."+key).call(Crosshair[key]);		
+		    
+		    svg.select("g.crosshair."+key).append('text')
+	        .attr("class", "symbol")
+	        .attr("id", "symbol-"+key)
+ 	        .attr("x", 5)
+	        .attr("y", 0)
+	        .text(key);			    
+      }
+
+      for (var i=0; i<g_big_data.indicator_lines.length; i++){
+	      var data = g_big_data.indicators[g_big_data.indicator_lines[i]];    	  
+	      svg.select("g.sma.ma-"+i).datum(data).call(ind_line).append("title").text(g_big_data.indicator_lines[i])
+	       	.on("mouseenter", lineenter).on("mouseout", lineout);
+	      //svg.select("g.indicator.annotation.ma-"+i)
+	      //.datum([data[data.length-1]]).call(ohlcIndicatorAnnotation);
+      }
+      
+      //svg.select("g.trendlines").datum(stock.trendlines).call(trendline).call(trendline.drag);
+      //svg.select("g.supstances").datum(stock.supstances).call(supstance).call(supstance.drag);
+      resize(selection);
+      selection.call(draw);
+    }
+
+
+		bigchart.resize = function(selection) {
+			selection.call(resize).call(draw);
+		};
+		
+		function resize(selection) {
+		      dim.width = selection.node().clientWidth;
+		      dim.height = selection.node().clientHeight;
+		      dim.plot.width = dim.width - dim.margin.left - dim.margin.right;
+		      dim.plot.height = dim.height - dim.margin.top - dim.margin.bottom;
+		      
+		      var ind_plot_num = Object.keys(g_big_data.indicator_plots).length;
+		      
+		      dim.ohlc.height = dim.plot.height * (1 - 
+		    		 (ind_plot_num?0.151*(Math.min(ind_plot_num, 3)):0.001)); //0.67777777;
+		    
+			  var ind_h = Math.min(dim.plot.height * 0.144444, dim.plot.height*.42/(ind_plot_num || 1));		    		 
+		      dim.indicator.height = ind_h;
+		      dim.indicator.padding = dim.plot.height * 0.01111111111;
+		      dim.indicator.top = dim.ohlc.height + dim.indicator.padding;
+		      dim.indicator.bottom = dim.indicator.top + dim.indicator.height + dim.indicator.padding;
+
+		      var xRange = [0, dim.plot.width],
+		          yRange = [dim.ohlc.height, 0],
+		          ohlcVerticalTicks = Math.min(10, Math.round(dim.height/70)),
+		          xTicks = Math.min(10, Math.round(dim.width/130));
+
+		      indicatorTop.range([dim.indicator.top, dim.indicator.bottom]);
+		      x.range(xRange);
+		      xAxis.ticks(xTicks);
+		      xAxisTop.ticks(xTicks);
+		      y.range(yRange);
+		      yAxis.ticks(ohlcVerticalTicks);
+		      yPercent.range(y.range());
+		      percentAxis.ticks(ohlcVerticalTicks);
+		      yVolume.range([yRange[0], yRange[0]-0.2*yRange[0]]);
+		      volumeAxis.ticks(Math.min(3, Math.round(dim.height/150)));
+		      timeAnnotation.translate([0, dim.plot.height]);
+		      ohlcAnnotation.translate([xRange[1], 0]);
+		      closeAnnotation.translate([xRange[1], 0]);
+		      ohlcIndicatorAnnotation.translate([xRange[1], 0]);
+		      ohlcCrosshair.verticalWireRange([0, dim.plot.height]);
+
+		      var j = 0;
+	          for (key in g_big_data.indicator_plots){
+					val = g_big_data.indicator_plots[key];
+					yScale[key].range([indicatorTop(j) + dim.indicator.height, indicatorTop(j)]);
+				    Annotation[key].translate([xRange[1], 0]);
+				    Crosshair[key].verticalWireRange([0, dim.plot.height]);		
+				    d3.select("#symbol-"+key).attr("y", indicatorTop(j)+7).attr("color", "blue");	    
+			        j++;
+		      }
+
+	          selection.select('tooltiptext')
+	       	 	.style("text-anchor", "end")
+	        	.attr("class", "coords")
+	        	.attr("x", dim.plot.width - 5)
+	        	.attr("y", dim.plot.top + 15);	          
+		      
+		      selection.select("svg")
+		        .attr("width", dim.width)
+		        .attr("height", dim.height);
+
+		      selection.select("text.version")
+		          .attr("x", dim.width-5)
+		          .attr("y", dim.height);
+		      selection.selectAll("defs #ohlcClip > rect")
+		        .attr("width", dim.plot.width)
+		        .attr("height", dim.ohlc.height);
+
+/* 		      selection.selectAll("defs #supstanceClip > rect")
+		        .attr("width", dim.width)
+		        .attr("height", dim.ohlc.height); */
+
+		      selection.selectAll("defs .indicatorClip > rect")
+		        .attr("y", function (d, i) {
+		          return indicatorTop(i);
+		        })
+		        .attr("width", dim.plot.width)
+		        .attr("height", dim.indicator.height);
+
+		      selection.select("g.x.axis.bottom")
+		        .attr("transform", "translate(0," + dim.plot.height + ")");
+
+		      selection.select("g.ohlc g.y.axis")
+		        .attr("transform", "translate(" + xRange[1] + ",0)");
+
+		      selection.selectAll("g.indicator g.axis.right")
+		        .attr("transform", "translate(" + xRange[1] + ",0)");
+		      selection.selectAll("g.indicator g.axis.left")
+		        .attr("transform", "translate(" + xRange[0] + ",0)");
+	       
+		      //console.log("resize dim:"+JSON.stringify(dim)+" indTop: "+indicatorTop(0));
+		}
+
+	    function draw(selection) {
+	        var svg = selection.select("svg");
+	        svg.select("g.x.axis.bottom").call(xAxis);
+	        svg.select("g.x.axis.top").call(xAxisTop);
+	        svg.select("g.ohlc .axis").call(yAxis);
+	        svg.select("g.volume.axis").call(volumeAxis);
+	        svg.select("g.percent.axis").call(percentAxis);
+
+			if (g_big_data.indicators.ohlc.length == 0)
+				return;
+
+			var i = 0;
+			var pos_list = [];
+			if (g_big_data.indicators.ohlc.length > 0 && g_big_data.positions.length > 0) {
+				for (i = 0; i < g_big_data.positions.length; i++) {
+					if (g_big_data.positions[i].date >= g_big_data.indicators.ohlc[0].date)
+						break;
+				}
+				//console.log("pos len"+g_big_data.positions.length+"i:"+i);
+				pos_list = g_big_data.positions.slice(i);
+			}
+			console.log("positions in perspective: " + pos_list.length);
+			if (pos_list.length) {
+				svg.select("g.tradearrow").datum(pos_list).call(tradearrow);
+			}	        
+	        
+	        // We know the data does not change, a simple refresh that does not perform data joins will suffice.
+	        svg.select("g.candlestick").call(candlestick.refresh);
+	        svg.select("g.closeValue.annotation").call(closeAnnotation.refresh);
+	        svg.select("g.volume").call(volume.refresh);	        
+	        svg.select("g.crosshair.ohlc").call(ohlcCrosshair.refresh);
+	        
+	        for (key in g_big_data.indicator_plots){
+		        val = g_big_data.indicator_plots[key];
+		        console.log ("key "+key+" val "+val);
+			    svg.select("g."+key+" .axis.right").call(Axis[key]);
+			    svg.select("g."+key+" .axis.left").call(AxisLeft[key]);	        
+				svg.select("g."+key+" .indicator-plot").call(indi_plot[key].refresh);
+		        svg.select("g.crosshair."+key).call(Crosshair[key].refresh);
+		    }
+	        
+		    for (i=0; i<g_big_data.indicator_lines.length; i++) {		    
+				svg.select("g .sma.ma-"+i).call(ind_line.refresh);
+			    //svg.select("g.indicator.annotation.ma-"+i).call(ohlcIndicatorAnnotation.refresh);
+		    }
+	        
+	       // svg.select("g.trendlines").call(trendline.refresh);
+	        //svg.select("g.supstances").call(supstance.refresh)
+	         // .selectAll("g.data .supstance").attr("clip-path", "url(#ohlcClip)"); // FIXME Component should do the clipping, too much internal knowledge here
+	      }
+
+		return bigchart;
+	}
+
+	var ONE_DAY_IN_SEC = 24*60*60;
+	var g_chart_period = 1;
+	var g_chart_start_time = 0; //Math.floor(Date.now()/1000);
+
+	function btn_onclick(id) {
+
+		d3.select("#btn" + g_chart_period).node().classList
+				.remove("btn-success");
+		d3.select("#btn" + g_chart_period).node().classList.add("btn-primary");
+		switch (id) {
+		case "btn1":
+			g_chart_period = 1;
+			g_chart_start_time = 0;// -= g_chart_period*ONE_DAY_IN_SEC;
+			break;
+		case "btn3":
+			g_chart_period = 3;
+			g_chart_start_time  = 0; //-= g_chart_period*ONE_DAY_IN_SEC;			
+			break;
+		case "btn7":
+			g_chart_period = 7;
+			g_chart_start_time  = 0; //-= g_chart_period*ONE_DAY_IN_SEC;			
+			break;
+		case "btn30":
+			g_chart_period = 30;
+			g_chart_start_time  = 0; //-= g_chart_period*ONE_DAY_IN_SEC;			
+			break;
+		case "btn_prev":
+			g_chart_start_time -= 1 ; //(g_chart_period*ONE_DAY_IN_SEC*0.85);
+			console.log("load prev candles starting "+g_chart_start_time);			
+			break;
+		case "btn_next":
+			g_chart_start_time += 1; //(g_chart_period*ONE_DAY_IN_SEC*0.85);
+			if (g_chart_start_time > 0) {
+				g_chart_start_time = 0;
+			}
+/* 			if (g_chart_start_time > Math.floor(Date.now()/1000)) {
+				g_chart_start_time = Math.floor(Date.now()/1000)
+			} */
+			console.log("load next candles starting "+g_chart_start_time);						
+			break;			
+		default:
+			console.log("Unknown button");
+			break;
+		}
+		d3.select("#btn" + g_chart_period).node().classList
+				.remove("btn-primary");
+		d3.select("#btn" + g_chart_period).node().classList.add("btn-success");
+		console.log("btn clicked: " + id + " new period:" + g_chart_period);
+
+		console.log("load stats");
+		loadPositions();
+		loadCandles();
+	}
+</script>
+
+<style>
+.btn {
+	position: initial;
+}
+</style>
+
+<body>
+
+	<div class="row align-items-start">
+		<div class="col-12">
+			<div class="navbar navbar-inverse navbar-static-top">
+				<div class="container">
+					<header class="clearfix">
+						<h3 class="brand">
+							<a href="/">Wolfinch</a>
+							<div class="btn-group dropdown"
+								style="float: right; margin-left: 2rem;">
+								<div class="btn-group btn-group-xs " role="group">
+									<button type="button" style="position: initial;"
+										class="btn btn-default dropdown-toggle btn-primary"
+										data-toggle="dropdown" aria-haspopup="true"
+										aria-expanded="false" id="exch_btn_id">
+										Exchange <span class="caret"></span>
+									</button>
+									<ul class="dropdown-menu .dropdown-menu-right"
+										id="exchangesDdId">
+									</ul>
+								</div>
+								<div class="btn-group btn-group-xs" role="group">
+									<button type="button" style="position: initial;"
+										class="btn btn-default dropdown-toggle btn-primary"
+										data-toggle="dropdown" aria-haspopup="true"
+										aria-expanded="false" id="markets_btn_id"
+										onclick="load_markets_dd">
+										Market <span class="caret"></span>
+									</button>
+									<ul class="dropdown-menu .dropdown-menu-right" id="marketsDdId">
+									</ul>
+								</div>
+							</div>
+						</h3>
+						<ul class="nav masthead-nav">
+							<li><a href="../wolfinch"> Home</a></li>
+							<li class="active"><a href="chart.html">Charts </a></li>
+							<li><a href="trading.html"> Trading</a></li>
+							<li><a href="/"> Documentation</a></li>
+						</ul>
+					</header>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="jumbotron jumbotron-fluid">
+		<div class="container">
+			<div class="row" style="margin-left: 1em;">
+				<div class="col-sm-12" style="position: relative">
+					<button id="btn1" onclick="btn_onclick(this.id)"
+						class="btn btn-success btn-xs ">1 Day</button>
+					<button id="btn3" onclick="btn_onclick(this.id)"
+						class="btn btn-primary btn-xs ">3 Day</button>
+					<button id="btn7" onclick="btn_onclick(this.id)"
+						class="btn btn-primary btn-xs ">7 Days</button>
+					<button id="btn30" onclick="btn_onclick(this.id)"
+						class="btn btn-primary btn-xs ">30 Days</button>					
+					<button id="btn_prev" onclick="btn_onclick(this.id)"
+						class="btn btn-success btn-sm ">
+						<span class="glyphicon glyphicon-chevron-left" aria-hidden="true"></span></button>						
+					<button id="btn_next" onclick="btn_onclick(this.id)"
+						class="btn btn-success btn-sm ">
+						<span class="glyphicon glyphicon-chevron-right" aria-hidden="true"></span></button>						
+												
+				</div>
+			</div>
+			<div class="row">
+
+				<div class="chartcontainer" id="chart"></div>
+			</div>
+
+		</div>
+	</div>
+
+	<footer class="footer">
+		<div class="container">
+			<p>
+				<small>
+					<div class="row">
+						<em>&copy; 2017-2020 Wolfinch Bot</em>
+					</div>
+				</small>
+
+			</p>
+		</div>
+	</footer>
+</body>
+</html>

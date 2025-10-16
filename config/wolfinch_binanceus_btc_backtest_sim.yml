@@ -1,0 +1,80 @@
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+##################################################
+# Wolfinch Global config file
+##################################################
+
+
+# Define the interested exchanges here. 
+# One primary exchange for trading and as many others in spectator mode
+# data from exchanges in spectator mode will be considered for trading decision
+exchanges:
+   - 'binanceus' : 
+      role: 'primary'
+      config: 'config/binanceus.yml'
+      products:
+         - 'BTCUSD':
+            active: true         
+            fund_max_liquidity : 900 #$$               
+            fund_max_per_buy_value : 30 #$100 max per buy
+            asset_max_per_trade_size: 1000 #per sell asset size max
+            asset_min_per_trade_size: .001 #Min asset size to trade with (may come from exch limits or asset limits)
+            stop_loss:
+               enabled: true
+               kind : strategy      #simple(default) | trailing | ATRXX | strategy |
+               rate : 4 #-3%
+            take_profit:
+               enabled: true 
+               kind : strategy # simple (default) | strategy |
+               rate: 9 # 10percent
+            decision:
+               model    : simple
+               config   :
+                  #strategy: TRABOS
+                  #params: {'period': 110, 'ema': 27, 'atr': 50, 'mfi': 70, 'mfi_dir_len': 2, 'obv_dir_len': 2, 'stop_x': 8, 'profit_x': 6, 'vosc_short': 75, 'vosc_long': 150, 'timeout_buy': 0, 'timeout_sell': 36}
+                  #params : {'period': 140, 'ema': 7, 'atr': 160, 'mfi': 125, 'mfi_dir_len': 2, 'obv_dir_len':2, 'stop_x': 2, 'profit_x': 4, 'vosc_short': 50, 'vosc_long': 185, 'timeout_buy': 1, 'timeout_sell': 3}
+                  strategy: EMA_DEV
+                  params : {'ema_sell_s': 85, 'timeout_sell': 74, 'rsi': 76, 'treshold_pct_buy_l': 1.31, 'ema_buy_s': 90, 'timeout_buy': 4, 'period': 195, 'treshold_pct_sell_s': 0.61, 'ema_buy_l': 70, 'treshold_pct_sell_l': 1.0, 'treshold_pct_buy_s': 1.69, 'ema_sell_l': 70} 
+      # products - end
+      order_type    : market
+      fee     : 
+         maker : 0.075 #make fee %
+         taker : 0.075 #taker fee %
+   #cbpro - end
+# exchanges - end
+
+# TODO: exchanges specific config should follow a common timing, should be driven by global config
+candle_interval : 300  #300s == 5m 
+
+backfill:
+   enabled  : true  
+   period   : 30  #in Days
+
+simulator:
+   enabled : true
+   backtesting : true
+   
+genetic_optimizer: 
+   enabled : false
+   N_POP : 1
+   N_GEN : 1
+   N_MP : 1
+   strategy : EMA_DEV
+ui:
+   enabled : true
+   port : 8080
+   
+#EOF
