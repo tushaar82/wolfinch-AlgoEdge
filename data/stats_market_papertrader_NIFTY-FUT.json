@@ -1,14 +1,14 @@
 
 {
-"exchange_name": "papertrader", "product_id": "NIFTY-FUT","name": "NIFTY", "current_market_rate": 19701.410000,
-"cur_candle_time": 1760601960, "cur_candle_vol": 0.000000, "num_candles": 6628,
+"exchange_name": "papertrader", "product_id": "NIFTY-FUT","name": "NIFTY", "current_market_rate": 19317.780000,
+"cur_candle_time": 1760604600, "cur_candle_vol": 0.000000, "num_candles": 5090,
 "num_buy_req": 0, "num_buy_req_reject": 0,
-"num_sell_req": 1, "num_sell_req_reject": 1,
+"num_sell_req": 5, "num_sell_req_reject": 5,
 "num_buy_order": 0, "num_buy_order_success": 0, "num_buy_order_failed": 0,
 "num_sell_order": 0, "num_sell_order_success": 0, "num_sell_order_failed": 0,
 "num_take_profit_hit": 0, "num_stop_loss_hit": 0,
 "num_success_trade": 0, "num_failed_trade": 0,
-"cur_buy_and_hold_profit": 0.000000,
+"cur_buy_and_hold_profit": -0.000000,
 "trading_paused_buy": 0, "trading_paused_sell": 0,
 "fund":
 {

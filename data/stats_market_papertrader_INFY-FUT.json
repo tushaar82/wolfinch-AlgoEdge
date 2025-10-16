@@ -1,26 +1,26 @@
 
 {
-"exchange_name": "papertrader", "product_id": "INFY-FUT","name": "INFY", "current_market_rate": 1483.730000,
-"cur_candle_time": 1760601960, "cur_candle_vol": 0.000000, "num_candles": 6541,
-"num_buy_req": 3, "num_buy_req_reject": 0,
-"num_sell_req": 0, "num_sell_req_reject": 0,
-"num_buy_order": 3, "num_buy_order_success": 3, "num_buy_order_failed": 0,
-"num_sell_order": 3, "num_sell_order_success": 3, "num_sell_order_failed": 0,
-"num_take_profit_hit": 0, "num_stop_loss_hit": 3,
-"num_success_trade": 0, "num_failed_trade": 3,
+"exchange_name": "papertrader", "product_id": "INFY-FUT","name": "INFY", "current_market_rate": 1600.180000,
+"cur_candle_time": 1760604600, "cur_candle_vol": 0.000000, "num_candles": 5090,
+"num_buy_req": 10, "num_buy_req_reject": 0,
+"num_sell_req": 6, "num_sell_req_reject": 2,
+"num_buy_order": 10, "num_buy_order_success": 10, "num_buy_order_failed": 0,
+"num_sell_order": 6, "num_sell_order_success": 6, "num_sell_order_failed": 0,
+"num_take_profit_hit": 2, "num_stop_loss_hit": 0,
+"num_success_trade": 6, "num_failed_trade": 0,
 "cur_buy_and_hold_profit": 0.000000,
 "trading_paused_buy": 0, "trading_paused_sell": 0,
 "fund":
 {
-"initial_value":1000000.000000,"current_value":998382.880000,"current_hold_value":0.000000, "total_traded_value":144055.200000, "fee_accrued": 0.000000,
-"current_realized_profit":-1617.120000,"current_unrealized_profit":0.000000, "total_profit":0.000000,
-"current_avg_buy_price":1517.420000,"latest_buy_price":1517.420000,
+"initial_value":1000000.000000,"current_value":908023.890000,"current_hold_value":0.000000, "total_traded_value":391274.870000, "fee_accrued": 0.000000,
+"current_realized_profit":4058.540000,"current_unrealized_profit":0.000000, "total_profit":0.000000,
+"current_avg_buy_price":1600.577500,"latest_buy_price":1600.180000,
 "fund_liquidity_percent":0, "max_per_buy_fund_value":25000
 },
 "asset":{
-"initial_size":0.000000, "current_size":0.000000, "hold_size": 0.000000, "current_hold_size":0.000000,
-"max_per_trade_size":50.000000, "min_per_trade_size":1.000000, "latest_traded_size":16.000000, "total_traded_size":96.000000
+"initial_size":0.000000, "current_size":60.000000, "hold_size": 0.000000, "current_hold_size":-31.000000,
+"max_per_trade_size":50.000000, "min_per_trade_size":1.000000, "latest_traded_size":15.000000, "total_traded_size":246.000000
 },
 "order_book":
-{"position_all": 3, "open": 0, "close_pending": 0, "closed": 3}
+{"position_all": 10, "open": 4, "close_pending": 0, "closed": 6}
 }

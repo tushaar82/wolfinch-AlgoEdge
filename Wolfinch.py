@@ -28,7 +28,7 @@ import argparse
 from decimal import getcontext
 import random
 # import logging
-from utils import getLogger, get_product_config, load_config, get_config
+from utils import getLogger, get_product_config, load_config, get_config, readConf
 import sims
 import exchanges
 from market import market_init, market_setup, get_market_list, \
@@ -55,42 +55,122 @@ def Wolfinch_init():
     random.seed()
 
     # 0. Initialize InfluxDB and Redis if available
+    # NOTE: This runs AFTER config is loaded in main()
+    msg = "\n" + "="*70 + "\nInitializing InfluxDB and Redis...\n" + "="*70
+    print(msg)
+    log.info(msg)
+    
     try:
-        from db import init_influx_db, init_redis_cache, init_trade_logger, INFLUX_AVAILABLE
+        msg = "Step 1: Importing InfluxDB modules..."
+        print(msg)
+        log.info(msg)
+        from db import init_influx_db, init_redis_cache, init_trade_logger, init_indicator_logger, INFLUX_AVAILABLE
+        msg = f"✓ INFLUX_AVAILABLE = {INFLUX_AVAILABLE}"
+        print(msg)
+        log.info(msg)
+        
         if INFLUX_AVAILABLE:
-            # Load cache_db config from main config
-            main_config = get_config()
-            cache_db_ref = main_config.get('cache_db', {})
-            if not cache_db_ref:
-                log.warning("cache_db not found in main config - InfluxDB/Redis disabled")
-            else:
-                cache_db_file = cache_db_ref.get('config', 'config/cache_db.yml')
+            # Try to load cache_db config
+            try:
+                print("Step 2: Loading configuration...")
+                # First try to get from main config
+                main_config = get_config()
+                print(f"✓ Main config loaded: {main_config is not None}")
+                
+                if main_config and 'cache_db' in main_config:
+                    cache_db_ref = main_config.get('cache_db', {})
+                    cache_db_file = cache_db_ref.get('config', 'config/cache_db.yml')
+                    print(f"✓ cache_db from main config: {cache_db_file}")
+                else:
+                    # Fallback to default location
+                    cache_db_file = 'config/cache_db.yml'
+                    print(f"⚠ Using default cache_db: {cache_db_file}")
+                
                 log.info(f"Loading cache_db config from: {cache_db_file}")
                 cache_db_config = readConf(cache_db_file)
+                print(f"✓ cache_db config loaded: {cache_db_config is not None}")
+                
                 if cache_db_config:
                     # Initialize Redis
+                    print("Step 3: Initializing Redis...")
                     redis_config = cache_db_config.get('redis', {})
                     if redis_config.get('enabled', False):
                         init_redis_cache(redis_config)
-                        log.info("Redis cache initialized")
+                        log.info("✓ Redis cache initialized")
+                        print("✓ Redis initialized")
+                    else:
+                        print("⚠ Redis disabled")
                     
                     # Initialize InfluxDB
+                    print("Step 4: Initializing InfluxDB...")
+                    influx_config = cache_db_config.get('influxdb', {})
+                    print(f"  InfluxDB enabled: {influx_config.get('enabled', False)}")
+                    
+                    if influx_config.get('enabled', False):
+                        init_influx_db(influx_config)
+                        log.info("✓ InfluxDB initialized")
+                        print("✓ InfluxDB initialized")
+                        
+                        # Initialize Trade Logger
+                        print("Step 5: Initializing TradeLogger...")
+                        init_trade_logger()
+                        log.info("✓ Trade logger initialized")
+                        print("✓ TradeLogger initialized")
+                        
+                        # Initialize Indicator Logger
+                        print("Step 6: Initializing IndicatorLogger...")
+                        init_indicator_logger()
+                        log.info("✓ Indicator logger initialized")
+                        print("✓ IndicatorLogger initialized")
+                        
+                        print("="*70)
+                        print("✅ InfluxDB initialization COMPLETE!")
+                        print("="*70 + "\n")
+                    else:
+                        log.warning("InfluxDB disabled in config")
+                        print("❌ InfluxDB disabled in config!")
+                else:
+                    log.warning(f"Failed to read cache_db config from {cache_db_file}")
+                    print(f"❌ Failed to read cache_db config from {cache_db_file}")
+            except FileNotFoundError as e:
+                log.warning(f"cache_db.yml not found: {e}")
+                print(f"⚠ cache_db.yml not found, trying default...")
+                # Try default location
+                cache_db_config = readConf('config/cache_db.yml')
+                if cache_db_config:
+                    redis_config = cache_db_config.get('redis', {})
+                    if redis_config.get('enabled', False):
+                        init_redis_cache(redis_config)
+                        log.info("✓ Redis cache initialized")
+                        print("✓ Redis initialized")
+                    
                     influx_config = cache_db_config.get('influxdb', {})
                     if influx_config.get('enabled', False):
                         init_influx_db(influx_config)
-                        log.info("InfluxDB initialized")
-                        
-                        # Initialize Trade Logger
+                        log.info("✓ InfluxDB initialized")
+                        print("✓ InfluxDB initialized")
                         init_trade_logger()
-                        log.info("Trade logger initialized")
-                else:
-                    log.warning(f"Failed to read cache_db config from {cache_db_file}")
+                        log.info("✓ Trade logger initialized")
+                        print("✓ TradeLogger initialized")
+                        init_indicator_logger()
+                        log.info("✓ Indicator logger initialized")
+                        print("✓ IndicatorLogger initialized")
         else:
             log.warning("InfluxDB/Redis modules not available")
+            print("❌ InfluxDB/Redis modules NOT available - using SQLite")
+            print("="*70 + "\n")
     except Exception as e:
-        log.error(f"InfluxDB/Redis initialization failed: {e}")
+        log.critical(f"InfluxDB/Redis initialization FAILED: {e}")
+        print(f"\n{'='*70}")
+        print(f"❌ FATAL ERROR: InfluxDB/Redis initialization FAILED!")
+        print(f"{'='*70}")
+        print(f"Error: {e}")
+        print(f"Type: {type(e).__name__}")
         import traceback
-        log.error(traceback.format_exc())
+        log.critical(traceback.format_exc())
+        print("\nFull traceback:")
+        print(traceback.format_exc())
+        print(f"{'='*70}\n")
 
     # 1. Retrieve states back from Db
 #     db.init_order_db(Order)

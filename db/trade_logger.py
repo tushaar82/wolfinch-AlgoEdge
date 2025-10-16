@@ -468,10 +468,11 @@ def init_trade_logger() -> TradeLogger:
     return _trade_logger
 
 def get_trade_logger() -> Optional[TradeLogger]:
-    """Get global trade logger instance"""
+    """
+    Get global trade logger instance
+    Returns None if not initialized - call init_trade_logger() first!
+    """
     global _trade_logger
-    if _trade_logger is None:
-        _trade_logger = TradeLogger()
     return _trade_logger
 
 # EOF

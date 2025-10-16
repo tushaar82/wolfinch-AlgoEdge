@@ -19,7 +19,9 @@
 #  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
 
 import random
+import time
 from .strategy import Strategy
+from strategy.strategy_logger import create_strategy_logger
 
 class RANDOM_TRADER(Strategy):
     """
@@ -64,6 +66,9 @@ class RANDOM_TRADER(Strategy):
         
         # Configure indicators (we'll use close price for reference)
         self.set_indicator("close")
+        
+        # Initialize indicator logger (will be set when strategy is attached to market)
+        self.indicator_logger = None
     
     def generate_signal(self, candles):
         """
@@ -77,6 +82,10 @@ class RANDOM_TRADER(Strategy):
         # Wait for minimum period
         if len_candles < self.period:
             return 0
+        
+        # Get current price for logging
+        current_price = candles.close[-1] if len(candles.close) > 0 else 0
+        current_volume = candles.volume[-1] if len(candles.volume) > 0 else 0
         
         # If we have a position, track how long we've held it
         if self.position:

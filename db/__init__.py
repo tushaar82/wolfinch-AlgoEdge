@@ -10,6 +10,7 @@ try:
     from .redis_cache import init_redis_cache, get_redis_cache
     from .candle_db_influx import CandleDBInflux, create_candle_db
     from .trade_logger import TradeLogger, init_trade_logger, get_trade_logger
+    from .indicator_logger import IndicatorLogger, init_indicator_logger, get_indicator_logger
     INFLUX_AVAILABLE = True
 except ImportError:
     INFLUX_AVAILABLE = False
