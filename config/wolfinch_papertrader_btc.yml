@@ -1,0 +1,78 @@
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+##################################################
+# Wolfinch Global config file for PaperTrader
+##################################################
+
+
+# Define the interested exchanges here. 
+# One primary exchange for trading and as many others in spectator mode
+# data from exchanges in spectator mode will be considered for trading decision
+exchanges:
+   - 'papertrader' : 
+      role: 'primary'
+      config: 'config/papertrader.yml'
+      products:
+         - 'BTC-USD':
+            active: true         
+            fund_max_liquidity : 9000 #$$               
+            fund_max_per_buy_value : 100 #$100 max per buy
+            asset_max_per_trade_size: 10 #per sell asset size max
+            asset_min_per_trade_size: .001 #Min asset size to trade with
+            stop_loss:
+               enabled: true
+               kind : strategy      #simple(default) | trailing | ATRXX | strategy |
+               rate : 3 #-3%
+            take_profit:
+               enabled: true 
+               kind : strategy # simple (default) | strategy |
+               rate: 5 # 5 percent
+            decision:
+               model    : simple
+               config   :
+                  strategy: EMA_RSI
+                  params : {'period': 120, 'ema_s': 5, 'ema_m': 13, 'ema_l': 21, 'ema_ll': 80, 'rsi': 21, 'rsi_bullish_mark': 50}
+      # products - end
+      order_type    : market
+      fee     : 
+         maker : 0.1 #maker fee %
+         taker : 0.1 #taker fee %
+   #papertrader - end
+# exchanges - end
+
+# Candle interval in seconds (300s = 5 minutes)
+candle_interval : 300
+
+backfill:
+   enabled  : true  
+   period   : 30  #in Days
+
+simulator:
+   enabled : true
+   backtesting : false
+   
+genetic_optimizer: 
+   enabled : false
+   N_POP : 1
+   N_GEN : 1
+   N_MP : 1
+   strategy : EMA_RSI
+
+ui:
+   enabled : true
+   port : 8080
+   
+#EOF

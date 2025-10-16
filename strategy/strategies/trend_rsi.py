@@ -80,7 +80,8 @@ class TREND_RSI(Strategy):
         
         cur_rsi = self.indicator(candles, 'RSI', self.rsi_periods)
         
-        if cur_rsi == np.NaN:
+        # NumPy 2.0 compatibility: use np.nan instead of np.NaN
+        if cur_rsi is None or np.isnan(cur_rsi):
             return 0
         if cur_rsi <= self.oversold_rsi:
             self.rsi_low = cur_rsi

@@ -1,0 +1,179 @@
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+##################################################
+# Wolfinch Config for NSE Bank Nifty Futures/Options
+# Using PaperTrader with BANK_minute.csv data
+##################################################
+
+# Cache and Database Configuration
+# Redis for caching, InfluxDB for time-series data
+cache_db:
+   config: 'config/cache_db.yml'
+
+# Define the interested exchanges here
+# You can trade multiple products with different strategies
+exchanges:
+   - 'papertrader' : 
+      role: 'primary'
+      config: 'config/papertrader.yml'
+      products:
+         # Bank Nifty - RANDOM_TRADER Strategy (for testing)
+         - 'BANKNIFTY-FUT':
+            active: true         
+            fund_max_liquidity : 400000 #INR (4 Lakhs for this product)               
+            fund_max_per_buy_value : 50000 #INR 50k max per trade
+            asset_max_per_trade_size: 100 #Max lots per trade
+            asset_min_per_trade_size: 1 #Min 1 lot
+            stop_loss:
+               enabled: true
+               kind : simple
+               rate : 2 #-2% stop loss
+            take_profit:
+               enabled: true 
+               kind : simple
+               rate: 3 # 3% take profit
+            decision:
+               model    : simple
+               config   :
+                  # Random trader for testing - generates random buy/sell signals
+                  strategy: RANDOM_TRADER
+                  params : {'period': 20, 'trade_probability': 20, 'max_signal_strength': 3, 'hold_candles': 5}
+                  
+                  # Alternative: Aggressive random trader (trades more frequently)
+                  # strategy: AGGRESSIVE_RANDOM
+                  # params : {'period': 10}
+                  
+                  # Alternative: Simple alternating trader
+                  # strategy: SIMPLE_RANDOM
+                  # params : {'period': 20, 'trade_every_n_candles': 10}
+         
+         # Nifty 50 - RANDOM_TRADER Strategy
+         - 'NIFTY-FUT':
+            active: true
+            fund_max_liquidity : 300000 #INR (3 Lakhs)
+            fund_max_per_buy_value : 40000
+            asset_max_per_trade_size: 100
+            asset_min_per_trade_size: 1
+            stop_loss:
+               enabled: true
+               kind : strategy
+               rate : 2
+            take_profit:
+               enabled: true
+               kind : strategy
+               rate: 3
+            decision:
+               model    : simple
+               config   :
+                  strategy: RANDOM_TRADER
+                  params : {'period': 20, 'trade_probability': 25, 'max_signal_strength': 3, 'hold_candles': 5}
+         
+         # Reliance - RANDOM_TRADER Strategy
+         - 'RELIANCE-FUT':
+            active: true
+            fund_max_liquidity : 200000 #INR (2 Lakhs)
+            fund_max_per_buy_value : 30000
+            asset_max_per_trade_size: 50
+            asset_min_per_trade_size: 1
+            stop_loss:
+               enabled: true
+               kind : simple
+               rate : 2
+            take_profit:
+               enabled: true
+               kind : simple
+               rate: 3
+            decision:
+               model    : simple
+               config   :
+                  strategy: RANDOM_TRADER
+                  params : {'period': 20, 'trade_probability': 30, 'max_signal_strength': 3, 'hold_candles': 5}
+         
+         # TCS - RANDOM_TRADER Strategy
+         - 'TCS-FUT':
+            active: true
+            fund_max_liquidity : 150000
+            fund_max_per_buy_value : 25000
+            asset_max_per_trade_size: 50
+            asset_min_per_trade_size: 1
+            stop_loss:
+               enabled: true
+               kind : strategy
+               rate : 1.5
+            take_profit:
+               enabled: true
+               kind : strategy
+               rate: 2.5
+            decision:
+               model    : simple
+               config   :
+                  strategy: RANDOM_TRADER
+                  params : {'period': 20, 'trade_probability': 35, 'max_signal_strength': 3, 'hold_candles': 5}
+         
+         # Infosys - RANDOM_TRADER Strategy
+         - 'INFY-FUT':
+            active: true
+            fund_max_liquidity : 150000
+            fund_max_per_buy_value : 25000
+            asset_max_per_trade_size: 50
+            asset_min_per_trade_size: 1
+            stop_loss:
+               enabled: true
+               kind : simple
+               rate : 2
+            take_profit:
+               enabled: true
+               kind : simple
+               rate: 3
+            decision:
+               model    : simple
+               config   :
+                  strategy: RANDOM_TRADER
+                  params : {'period': 20, 'trade_probability': 40, 'max_signal_strength': 3, 'hold_candles': 5}
+      # products - end
+      order_type    : market
+      fee     : 
+         maker : 0.03 #NSE futures brokerage ~0.03%
+         taker : 0.03 #NSE futures brokerage ~0.03%
+   #papertrader - end
+# exchanges - end
+
+# Candle interval in seconds
+# 60 = 1 minute (for minute data)
+# 300 = 5 minutes
+# 900 = 15 minutes
+candle_interval : 60  # 1 minute for intraday trading
+
+backfill:
+   enabled  : true  
+   period   : 30  #in Days
+
+simulator:
+   enabled : true
+   backtesting : false
+   
+genetic_optimizer: 
+   enabled : false
+   N_POP : 10
+   N_GEN : 20
+   N_MP : 4
+   strategy : EMA_RSI
+
+ui:
+   enabled : true
+   port : 8089
+   
+#EOF

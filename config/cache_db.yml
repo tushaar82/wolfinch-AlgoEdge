@@ -1,0 +1,75 @@
+##################################################
+#  Wolfinch Auto trading Bot
+#  Desc: Cache and Time-Series Database Configuration
+#  
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+##################################################
+
+# Redis Configuration
+# High-performance in-memory cache for:
+# - Recent market indicators
+# - Position states
+# - Strategy states
+redis:
+  enabled: true
+  host: 'localhost'  # Use 'redis' if running Wolfinch in Docker
+  port: 6379
+  db: 0  # Database number (0-15)
+  password: null  # No password for local development
+  
+  # Cache TTL settings (in seconds)
+  ttl:
+    indicators: 300      # 5 minutes
+    candles: 600         # 10 minutes
+    positions: 3600      # 1 hour
+    strategies: 3600     # 1 hour
+
+# InfluxDB Configuration
+# Primary database for all time-series data
+# Replaces SQLite for better performance and accuracy
+influxdb:
+  enabled: true
+  url: 'http://localhost:8086'  # Use 'http://influxdb:8086' if running Wolfinch in Docker
+  token: 'wolfinch-super-secret-token-change-in-production'  # From docker-compose.yml
+  org: 'wolfinch'
+  bucket: 'trading'
+  
+  # Data retention settings
+  retention:
+    candles: '90d'       # Keep candle data for 90 days
+    indicators: '30d'    # Keep indicator data for 30 days
+    trades: '365d'       # Keep trade data for 1 year
+    metrics: '180d'      # Keep metrics for 180 days
+  
+  # Batch write settings
+  batch:
+    enabled: true
+    size: 1000           # Write in batches of 1000 points
+    flush_interval: 10   # Flush every 10 seconds
+
+# Performance Settings
+performance:
+  # Use Redis for hot data (recent candles/indicators)
+  redis_hot_data_window: 1000  # Keep last 1000 candles in Redis
+  
+  # Use InfluxDB for cold data (historical analysis)
+  influxdb_cold_storage: true
+  
+  # Hybrid mode: Check Redis first, fallback to InfluxDB
+  hybrid_mode: true
+
+# EOF

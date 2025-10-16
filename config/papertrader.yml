@@ -1,0 +1,67 @@
+#  Copyright: (c) 2017-2020 Joshith Rayaroth Koderi
+#  This file is part of Wolfinch.
+# 
+#  Wolfinch is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+# 
+#  Wolfinch is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+# 
+#  You should have received a copy of the GNU General Public License
+#  along with Wolfinch.  If not, see <https://www.gnu.org/licenses/>.
+##################################################
+# PaperTrader Exchange Config
+##################################################
+
+exchange:
+  # Directory containing CSV data files (gitignored)
+  raw_data_dir: 'raw_data'
+  
+  # Random data generation (for testing)
+  random_candles: 5000  # Number of random candles to generate per product
+  
+  # Initial account balances for NSE trading
+  initial_fund: 1000000.0  # INR (10 Lakhs) - shared across all products
+  initial_asset: 0.0       # Futures/Options contracts
+  
+  # NSE Products to trade - Add all your CSV files here
+  # Each product will be traded independently
+  products:
+    - 'BANKNIFTY':
+        id: 'BANKNIFTY-FUT'
+        asset_type: 'BANKNIFTY'
+        fund_type: 'INR'
+        csv_file: 'BANK_minute.csv'
+    
+    - 'NIFTY':
+        id: 'NIFTY-FUT'
+        asset_type: 'NIFTY'
+        fund_type: 'INR'
+        csv_file: 'NIFTY_minute.csv'
+    
+    - 'RELIANCE':
+        id: 'RELIANCE-FUT'
+        asset_type: 'RELIANCE'
+        fund_type: 'INR'
+        csv_file: 'RELIANCE_minute.csv'
+    
+    - 'TCS':
+        id: 'TCS-FUT'
+        asset_type: 'TCS'
+        fund_type: 'INR'
+        csv_file: 'TCS_minute.csv'
+    
+    - 'INFY':
+        id: 'INFY-FUT'
+        asset_type: 'INFY'
+        fund_type: 'INR'
+        csv_file: 'INFY_minute.csv'
+    
+    # Add more products by copying the pattern above
+    # Just make sure the CSV file exists in raw_data/
+
+#EOF

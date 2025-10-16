@@ -340,7 +340,9 @@ class Market:
         self.cur_candle_time = 0
         self.cur_candle_vol = 0
         self.num_candles = 0
-        self.candlesDb = db.CandlesDb (OHLC, self.exchange_name, self.product_id)
+        
+        # CandlesDb automatically uses InfluxDB if available, falls back to SQLite
+        self.candlesDb = db.CandlesDb(OHLC, self.exchange_name, self.product_id)
         strategy_list = decision.get_strategy_list(self.exchange_name, self.product_id)
         if strategy_list == None:
             log.critical ("invalid strategy_list!!")
@@ -413,6 +415,11 @@ class Market:
 
         if num_period == 0:
             return self.market_indicators_data
+        
+        # Safety check: return empty list if no data available yet
+        if not self.market_indicators_data:
+            log.warning("No market indicators data available yet")
+            return []
         
         cur_cdl = self.market_indicators_data[-1]
         cur_day = cur_cdl['ohlc'].time//(24*60*60)
@@ -609,6 +616,28 @@ class Market:
         market_order = self.order_book.add_or_update_my_order(order)
         if(market_order):  # successful order
             log.debug ("BUY Order Sent to exchange. ")
+            
+            # Log order placed to InfluxDB
+            try:
+                from db import get_trade_logger
+                logger = get_trade_logger()
+                if logger and logger.is_enabled():
+                    logger.log_order_placed(
+                        exchange=self.exchange_name,
+                        product=self.product_id,
+                        order=market_order,
+                        market_data={
+                            'price': self.get_market_rate(),
+                            'volume': self.cur_candle_vol if hasattr(self, 'cur_candle_vol') else 0
+                        },
+                        strategy_data={
+                            'stop_loss': trade_req.stop,
+                            'take_profit': trade_req.profit
+                        }
+                    )
+            except Exception as e:
+                log.debug(f"Trade logging failed: {e}")
+            
             return market_order
         else:
             log.debug ("BUY Order Failed to place")
@@ -636,6 +665,35 @@ class Market:
             
             # stats
             self.num_buy_order_success += 1
+            
+            # Log order filled to InfluxDB
+            try:
+                from db import get_trade_logger
+                logger = get_trade_logger()
+                if logger and logger.is_enabled():
+                    logger.log_order_filled(
+                        exchange=self.exchange_name,
+                        product=self.product_id,
+                        order=market_order,
+                        fill_price=market_order.price,
+                        fill_size=market_order.filled_size,
+                        fee=market_order.fees,
+                        market_data={'price': self.get_market_rate()}
+                    )
+                    # Also log position opened
+                    logger.log_position_opened(
+                        exchange=self.exchange_name,
+                        product=self.product_id,
+                        position=market_order,
+                        entry_price=market_order.price,
+                        size=market_order.filled_size,
+                        strategy_data={
+                            'stop_loss': market_order.stop if hasattr(market_order, 'stop') else 0,
+                            'take_profit': market_order.profit if hasattr(market_order, 'profit') else 0
+                        }
+                    )
+            except Exception as e:
+                log.debug(f"Trade logging failed: {e}")
         else:
             log.critical("Invalid Market_order filled order:%s" % (str(order)))
 #             raise Exception("Invalid Market_order filled order:%s"%(str(order)))
@@ -659,6 +717,28 @@ class Market:
             market_order = self.order_book.add_or_update_my_order(order)
             if(market_order):  # successful order
                 log.debug ("SELL Order Sent to exchange. ")
+                
+                # Log order placed to InfluxDB
+                try:
+                    from db import get_trade_logger
+                    logger = get_trade_logger()
+                    if logger and logger.is_enabled():
+                        logger.log_order_placed(
+                            exchange=self.exchange_name,
+                            product=self.product_id,
+                            order=market_order,
+                            market_data={
+                                'price': self.get_market_rate(),
+                                'volume': self.cur_candle_vol if hasattr(self, 'cur_candle_vol') else 0
+                            },
+                            strategy_data={
+                                'stop_loss': trade_req.stop,
+                                'take_profit': trade_req.profit
+                            }
+                        )
+                except Exception as e:
+                    log.debug(f"Trade logging failed: {e}")
+                
                 return market_order
         log.error ("sell order failed")
         self.asset.sell_fail (trade_req.size)
@@ -692,6 +772,46 @@ class Market:
             self.num_sell_order_success += 1
             log.info ("SELL FILLED>>> filled_size:%s price:%s " % (
                 round(market_order.filled_size, 4), round(market_order.price, 4)))
+            
+            # Log order filled and position closed to InfluxDB
+            try:
+                from db import get_trade_logger
+                import time
+                logger = get_trade_logger()
+                if logger and logger.is_enabled():
+                    logger.log_order_filled(
+                        exchange=self.exchange_name,
+                        product=self.product_id,
+                        order=market_order,
+                        fill_price=market_order.price,
+                        fill_size=market_order.filled_size,
+                        fee=market_order.fees,
+                        market_data={'price': self.get_market_rate()}
+                    )
+                    
+                    # Calculate P&L for position closed
+                    # Get the corresponding buy order from position
+                    position = self.order_book.get_position_by_id(market_order._pos_id) if hasattr(market_order, '_pos_id') else None
+                    if position and hasattr(position, 'buy'):
+                        entry_price = position.buy.price
+                        exit_price = market_order.price
+                        size = market_order.filled_size
+                        pnl = (exit_price - entry_price) * size - market_order.fees
+                        pnl_percent = ((exit_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+                        duration = int(time.time()) - position.buy.timestamp if hasattr(position.buy, 'timestamp') else 0
+                        
+                        logger.log_position_closed(
+                            exchange=self.exchange_name,
+                            product=self.product_id,
+                            position=position,
+                            exit_price=exit_price,
+                            pnl=pnl,
+                            pnl_percent=pnl_percent,
+                            duration_seconds=duration,
+                            reason='strategy'
+                        )
+            except Exception as e:
+                log.debug(f"Trade logging failed: {e}")
         else:
             log.critical("Invalid Market_order filled order:%s" % (str(order)))
 #             raise Exception("Invalid Market_order filled order:%s"%(str(order)))

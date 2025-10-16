@@ -28,12 +28,18 @@ log = getLogger ('UI-DB')
 log.setLevel(log.DEBUG)
 
 cdl_db, order_db, position_db = None, None, None
+use_influxdb = False
 
 
 def init (exch_name, prod_id):
-    global cdl_db, order_db, position_db
+    global cdl_db, order_db, position_db, use_influxdb
     
+    # CandlesDb automatically uses InfluxDB if available
     cdl_db = db.CandlesDb(OHLC, exch_name, prod_id, read_only=True)
+    
+    # Check if it's using InfluxDB
+    use_influxdb = hasattr(cdl_db, '_using_influx') and cdl_db._using_influx
+    
     order_db = db.OrderDb(Order, exch_name, prod_id, read_only=True)
     position_db = db.PositionDb(Position, exch_name, prod_id, read_only=True)
 
@@ -41,7 +47,7 @@ def init (exch_name, prod_id):
         log.error ("db init failed")
         return False
     
-    log.info ("db_events init success")
+    log.info ("db_events init success (InfluxDB: %s)" % use_influxdb)
     return True 
 
 def get_all_candles(period=1):

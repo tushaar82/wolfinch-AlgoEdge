@@ -54,6 +54,44 @@ def Wolfinch_init():
     # seed random
     random.seed()
 
+    # 0. Initialize InfluxDB and Redis if available
+    try:
+        from db import init_influx_db, init_redis_cache, init_trade_logger, INFLUX_AVAILABLE
+        if INFLUX_AVAILABLE:
+            # Load cache_db config from main config
+            main_config = get_config()
+            cache_db_ref = main_config.get('cache_db', {})
+            if not cache_db_ref:
+                log.warning("cache_db not found in main config - InfluxDB/Redis disabled")
+            else:
+                cache_db_file = cache_db_ref.get('config', 'config/cache_db.yml')
+                log.info(f"Loading cache_db config from: {cache_db_file}")
+                cache_db_config = readConf(cache_db_file)
+                if cache_db_config:
+                    # Initialize Redis
+                    redis_config = cache_db_config.get('redis', {})
+                    if redis_config.get('enabled', False):
+                        init_redis_cache(redis_config)
+                        log.info("Redis cache initialized")
+                    
+                    # Initialize InfluxDB
+                    influx_config = cache_db_config.get('influxdb', {})
+                    if influx_config.get('enabled', False):
+                        init_influx_db(influx_config)
+                        log.info("InfluxDB initialized")
+                        
+                        # Initialize Trade Logger
+                        init_trade_logger()
+                        log.info("Trade logger initialized")
+                else:
+                    log.warning(f"Failed to read cache_db config from {cache_db_file}")
+        else:
+            log.warning("InfluxDB/Redis modules not available")
+    except Exception as e:
+        log.error(f"InfluxDB/Redis initialization failed: {e}")
+        import traceback
+        log.error(traceback.format_exc())
+
     # 1. Retrieve states back from Db
 #     db.init_order_db(Order)
 

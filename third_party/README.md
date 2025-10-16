@@ -4,7 +4,7 @@
 
 Install by `pip install -r requirement.txt`
 
-1. Install sqlite (if not installed already)
+1. Install sqlite (if not installed already
 
 ####Below are not required or related to deprecated functionality:
 

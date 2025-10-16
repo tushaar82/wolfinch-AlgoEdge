@@ -1,0 +1,97 @@
+version: '3.8'
+
+services:
+  # Redis - High-performance caching
+  redis:
+    image: redis:7-alpine
+    container_name: wolfinch-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --appendfsync everysec
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - wolfinch-network
+
+  # InfluxDB - Time-series database
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: wolfinch-influxdb
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    environment:
+      # Initial setup
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=wolfinch2024
+      - DOCKER_INFLUXDB_INIT_ORG=wolfinch
+      - DOCKER_INFLUXDB_INIT_BUCKET=trading
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=wolfinch-super-secret-token-change-in-production
+      - DOCKER_INFLUXDB_INIT_RETENTION=90d
+      
+      # Additional buckets (created via script)
+      - INFLUXDB_DB=trading
+      - INFLUXDB_HTTP_AUTH_ENABLED=true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks:
+      - wolfinch-network
+
+  # Grafana - Visualization (Optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: wolfinch-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    depends_on:
+      - influxdb
+    restart: unless-stopped
+    networks:
+      - wolfinch-network
+
+  # Redis Commander - Redis GUI (Optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: wolfinch-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - wolfinch-network
+
+networks:
+  wolfinch-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
+  influxdb-data:
+    driver: local
+  influxdb-config:
+    driver: local
+  grafana-data:
+    driver: local

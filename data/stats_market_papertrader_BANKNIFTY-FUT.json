@@ -1,0 +1,26 @@
+
+{
+"exchange_name": "papertrader", "product_id": "BANKNIFTY-FUT","name": "BANKNIFTY", "current_market_rate": 42892.000000,
+"cur_candle_time": 1760601960, "cur_candle_vol": 0.000000, "num_candles": 6628,
+"num_buy_req": 0, "num_buy_req_reject": 0,
+"num_sell_req": 0, "num_sell_req_reject": 0,
+"num_buy_order": 0, "num_buy_order_success": 0, "num_buy_order_failed": 0,
+"num_sell_order": 0, "num_sell_order_success": 0, "num_sell_order_failed": 0,
+"num_take_profit_hit": 0, "num_stop_loss_hit": 0,
+"num_success_trade": 0, "num_failed_trade": 0,
+"cur_buy_and_hold_profit": 0.000000,
+"trading_paused_buy": 0, "trading_paused_sell": 0,
+"fund":
+{
+"initial_value":1000000.000000,"current_value":1000000.000000,"current_hold_value":0.000000, "total_traded_value":0.000000, "fee_accrued": 0.000000,
+"current_realized_profit":0.000000,"current_unrealized_profit":0.000000, "total_profit":0.000000,
+"current_avg_buy_price":0.000000,"latest_buy_price":0.000000,
+"fund_liquidity_percent":0, "max_per_buy_fund_value":50000
+},
+"asset":{
+"initial_size":0.000000, "current_size":0.000000, "hold_size": 0.000000, "current_hold_size":0.000000,
+"max_per_trade_size":100.000000, "min_per_trade_size":1.000000, "latest_traded_size":0.000000, "total_traded_size":0.000000
+},
+"order_book":
+{"position_all": 0, "open": 0, "close_pending": 0, "closed": 0}
+}

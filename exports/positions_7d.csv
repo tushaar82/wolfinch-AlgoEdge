@@ -1,0 +1,1 @@
+timestamp,time,exchange,product,position_id,entry_price,exit_price,size,pnl,pnl_percent,duration_seconds,duration_minutes,close_reason,win,loss

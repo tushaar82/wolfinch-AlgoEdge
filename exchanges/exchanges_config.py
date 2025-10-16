@@ -25,6 +25,7 @@ all_exchanges = {
     "cbpro"     : "CBPRO",
     "binanceus" : "BinanceUS",
     "binanceClient"   : "Binance",    
-    "robinhood" : "Robinhood"
+    "robinhood" : "Robinhood",
+    "papertrader" : "PaperTrader"
     }
 #EOF    
