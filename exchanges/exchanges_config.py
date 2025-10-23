@@ -24,8 +24,9 @@ all_exchanges = {
     #eg. exchange_name : "ClassName"
     "cbpro"     : "CBPRO",
     "binanceus" : "BinanceUS",
-    "binanceClient"   : "Binance",    
+    "binanceClient"   : "Binance",
     "robinhood" : "Robinhood",
-    "papertrader" : "PaperTrader"
+    "papertrader" : "PaperTrader",
+    "openalgo"  : "OpenAlgo"
     }
 #EOF    

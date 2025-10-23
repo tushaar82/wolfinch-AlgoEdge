@@ -1,0 +1,58 @@
+exchange:
+  name: openalgo
+
+  # OpenAlgo API Configuration
+  # Get your API key from OpenAlgo dashboard
+  apiKey: 'your-openalgo-api-key-here'
+
+  # OpenAlgo host URL (default: local installation)
+  hostUrl: 'http://127.0.0.1:5000'
+
+  # Products/Symbols to trade
+  # Format: 'SYMBOL': {config}
+  products:
+    # Index Options
+    - 'NFO:NIFTY-24JAN25-22000-CE':
+        id: 'NIFTY-24JAN25-22000-CE'
+        display_name: 'NIFTY 22000 CE'
+        exchange: 'NFO'
+        segment: 'FNO'
+        instrument_type: 'OPTIDX'
+        product_type: 'MIS'  # MIS or NRML
+        asset_type: 'OPTIONS'
+        fund_type: 'INR'
+
+    - 'NFO:NIFTY-24JAN25-22000-PE':
+        id: 'NIFTY-24JAN25-22000-PE'
+        display_name: 'NIFTY 22000 PE'
+        exchange: 'NFO'
+        segment: 'FNO'
+        instrument_type: 'OPTIDX'
+        product_type: 'MIS'
+        asset_type: 'OPTIONS'
+        fund_type: 'INR'
+
+    - 'NFO:BANKNIFTY-24JAN25-48000-CE':
+        id: 'BANKNIFTY-24JAN25-48000-CE'
+        display_name: 'BANKNIFTY 48000 CE'
+        exchange: 'NFO'
+        segment: 'FNO'
+        instrument_type: 'OPTIDX'
+        product_type: 'MIS'
+        asset_type: 'OPTIONS'
+        fund_type: 'INR'
+
+  # Custom lot sizes (optional - overrides defaults)
+  # These are already defined in code, but can be customized here
+  lot_sizes:
+    NIFTY: 50
+    BANKNIFTY: 15
+    FINNIFTY: 40
+    MIDCPNIFTY: 75
+
+  # Backfill configuration
+  backfill_enabled: true
+  backfill_period: 30  # days
+
+  # Test mode (paper trading)
+  test_mode: false
