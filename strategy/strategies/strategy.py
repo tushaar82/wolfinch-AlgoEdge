@@ -48,8 +48,12 @@ class Strategy(metaclass=ABCMeta):
                 ind.update({periods})
         else:
             if type(periods) == tuple:
-                self._indicator_list[name] = set({periods})
+                # Unpack tuple into separate elements in the set
+                self._indicator_list[name] = set(periods)
             elif type(periods) == set:
+                self._indicator_list[name] = set(periods)
+            elif type(periods) == list:
+                # Convert list to set
                 self._indicator_list[name] = set(periods)
             else:
                 self._indicator_list[name] = set({periods})

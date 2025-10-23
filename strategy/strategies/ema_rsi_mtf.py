@@ -85,7 +85,7 @@ class EMA_RSI_MTF(Strategy):
         self.trailing_sl_percent = trailing_sl_percent
 
         # Register indicators
-        self.set_indicator("EMA", [self.ema_fast, self.ema_medium, self.ema_slow])
+        self.set_indicator("EMA", (self.ema_fast, self.ema_medium, self.ema_slow))
         self.set_indicator("RSI", self.rsi_period)
         self.set_indicator("SMA", 20)  # For volume average
 

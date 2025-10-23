@@ -83,9 +83,10 @@ class RANDOM_TRADER(Strategy):
         if len_candles < self.period:
             return 0
         
-        # Get current price for logging
-        current_price = candles.close[-1] if len(candles.close) > 0 else 0
-        current_volume = candles.volume[-1] if len(candles.volume) > 0 else 0
+        # Get current price for logging (candles are dicts with 'ohlc' key)
+        current_candle = candles[-1]['ohlc'] if len_candles > 0 else None
+        current_price = current_candle.close if current_candle else 0
+        current_volume = current_candle.volume if current_candle else 0
         
         # If we have a position, track how long we've held it
         if self.position:

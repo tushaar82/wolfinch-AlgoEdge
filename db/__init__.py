@@ -14,3 +14,9 @@ try:
     INFLUX_AVAILABLE = True
 except ImportError:
     INFLUX_AVAILABLE = False
+
+# PostgreSQL support
+try:
+    from .postgres_logger import PostgresLogger, init_postgres_logger, get_postgres_logger, POSTGRES_AVAILABLE
+except ImportError:
+    POSTGRES_AVAILABLE = False

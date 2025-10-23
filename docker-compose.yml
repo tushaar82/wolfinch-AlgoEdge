@@ -6,7 +6,7 @@ services:
     image: redis:7-alpine
     container_name: wolfinch-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis-data:/data
       - ./config/redis.conf:/usr/local/etc/redis/redis.conf
@@ -25,7 +25,7 @@ services:
     image: influxdb:2.7
     container_name: wolfinch-influxdb
     ports:
-      - "8086:8086"
+      - "8087:8086"
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
@@ -55,7 +55,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_SYNC_LIMIT: 2
     ports:
-      - "2181:2181"
+      - "2182:2181"
     volumes:
       - zookeeper-data:/var/lib/zookeeper/data
       - zookeeper-logs:/var/lib/zookeeper/log
@@ -75,12 +75,12 @@ services:
     depends_on:
       - zookeeper
     ports:
-      - "9092:9092"
-      - "9093:9093"
+      - "9094:9092"
+      - "9095:9093"
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9095
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -90,6 +90,9 @@ services:
       KAFKA_LOG_RETENTION_HOURS: 168  # 7 days
       KAFKA_LOG_SEGMENT_BYTES: 1073741824  # 1GB
       KAFKA_MESSAGE_MAX_BYTES: 10485760  # 10MB
+      # JMX settings for Prometheus monitoring
+      KAFKA_JMX_OPTS: "-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=kafka -Dcom.sun.management.jmxremote.rmi.port=9999"
+      JMX_PORT: 9999
     volumes:
       - kafka-data:/var/lib/kafka/data
     restart: unless-stopped
@@ -125,6 +128,7 @@ services:
       - "9090:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./config/prometheus/alerts:/etc/prometheus/alerts
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -150,13 +154,13 @@ services:
       - influxdb
       - prometheus
     ports:
-      - "3000:3000"
+      - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=wolfinch2024
       - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource,grafana-worldmap-panel
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
+      - GF_SERVER_ROOT_URL=http://localhost:3001
       - GF_AUTH_ANONYMOUS_ENABLED=false
     volumes:
       - grafana-data:/var/lib/grafana
@@ -205,6 +209,34 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - wolfinch-network
+
+  # Redis Exporter - Prometheus metrics for Redis
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: wolfinch-redis-exporter
+    ports:
+      - "9121:9121"
+    environment:
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - wolfinch-network
+
+  # PostgreSQL Exporter - Prometheus metrics for PostgreSQL
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:latest
+    container_name: wolfinch-postgres-exporter
+    ports:
+      - "9187:9187"
+    environment:
+      - DATA_SOURCE_NAME=postgresql://wolfinch:wolfinch2024@postgres:5432/wolfinch?sslmode=disable
+    depends_on:
+      - postgres
+    restart: unless-stopped
     networks:
       - wolfinch-network
 

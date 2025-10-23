@@ -172,6 +172,107 @@ def Wolfinch_init():
         print(traceback.format_exc())
         print(f"{'='*70}\n")
 
+    # Initialize PostgreSQL Logger
+    msg = "\n" + "="*70 + "\nInitializing PostgreSQL Logger...\n" + "="*70
+    print(msg)
+    log.info(msg)
+    
+    try:
+        from db import init_postgres_logger, POSTGRES_AVAILABLE
+        
+        if POSTGRES_AVAILABLE:
+            postgres_config = {
+                'host': 'localhost',
+                'port': 5432,
+                'database': 'wolfinch',
+                'user': 'wolfinch',
+                'password': 'wolfinch2024'
+            }
+            postgres_logger = init_postgres_logger(postgres_config)
+            if postgres_logger and postgres_logger.is_enabled():
+                log.info("✓ PostgreSQL logger initialized")
+                print("✓ PostgreSQL logger initialized")
+                
+                # Log system startup event
+                postgres_logger.log_system_event(
+                    event_type='system_startup',
+                    severity='INFO',
+                    component='wolfinch',
+                    message='Wolfinch trading system started',
+                    metadata={'version': '1.0', 'mode': 'production'}
+                )
+            else:
+                log.warning("PostgreSQL logger initialized but not enabled")
+                print("⚠ PostgreSQL logger not enabled")
+        else:
+            log.warning("PostgreSQL not available")
+            print("⚠ PostgreSQL not available")
+    except Exception as e:
+        log.error(f"PostgreSQL logger initialization failed: {e}")
+        print(f"⚠ PostgreSQL logger initialization failed: {e}")
+    
+    print("="*70 + "\n")
+    
+    # Initialize Kafka Producer
+    msg = "\n" + "="*70 + "\nInitializing Kafka Producer...\n" + "="*70
+    print(msg)
+    log.info(msg)
+    
+    try:
+        from infra.kafka.kafka_producer import get_kafka_producer
+        
+        kafka_producer = get_kafka_producer()
+        if kafka_producer and kafka_producer.enabled:
+            log.info("✓ Kafka producer initialized")
+            print("✓ Kafka producer initialized")
+            
+            # Publish system startup event
+            kafka_producer.publish_system_alert({
+                'type': 'system_startup',
+                'severity': 'INFO',
+                'message': 'Wolfinch trading system started',
+                'details': {'timestamp': time.time()}
+            })
+        else:
+            log.warning("Kafka producer not enabled")
+            print("⚠ Kafka producer not enabled")
+    except Exception as e:
+        log.error(f"Kafka producer initialization failed: {e}")
+        print(f"⚠ Kafka producer initialization failed: {e}")
+    
+    print("="*70 + "\n")
+    
+    # Initialize Prometheus Exporter
+    msg = "\n" + "="*70 + "\nInitializing Prometheus Exporter...\n" + "="*70
+    print(msg)
+    log.info(msg)
+    
+    try:
+        from infra.metrics import init_prometheus_exporter, PROMETHEUS_AVAILABLE
+        
+        if PROMETHEUS_AVAILABLE:
+            prometheus_exporter = init_prometheus_exporter(port=8000)
+            if prometheus_exporter and prometheus_exporter.is_enabled():
+                # Start HTTP server for metrics endpoint
+                if prometheus_exporter.start_server():
+                    log.info("✓ Prometheus exporter initialized and server started")
+                    print("✓ Prometheus exporter initialized")
+                    print(f"✓ Metrics available at http://localhost:8000/metrics")
+                else:
+                    log.warning("Prometheus exporter initialized but server failed to start")
+                    print("⚠ Prometheus server failed to start")
+            else:
+                log.warning("Prometheus exporter not enabled")
+                print("⚠ Prometheus exporter not enabled")
+        else:
+            log.warning("Prometheus client not available")
+            print("⚠ Prometheus client not available")
+    except Exception as e:
+        log.error(f"Prometheus exporter initialization failed: {e}")
+        print(f"⚠ Prometheus exporter initialization failed: {e}")
+    
+    print("="*70 + "\n")
+
     # 1. Retrieve states back from Db
 #     db.init_order_db(Order)
 
@@ -198,6 +299,42 @@ def Wolfinch_init():
 
 def Wolfinch_end():
     log.info("Finalizing Wolfinch")
+    
+    # Close monitoring systems
+    try:
+        from db import get_postgres_logger
+        postgres_logger = get_postgres_logger()
+        if postgres_logger:
+            # Log system shutdown event
+            postgres_logger.log_system_event(
+                event_type='system_shutdown',
+                severity='INFO',
+                component='wolfinch',
+                message='Wolfinch trading system shutting down',
+                metadata={'timestamp': time.time()}
+            )
+            postgres_logger.close()
+            log.info("PostgreSQL logger closed")
+    except Exception as e:
+        log.error(f"Error closing PostgreSQL logger: {e}")
+    
+    try:
+        from infra.kafka.kafka_producer import get_kafka_producer
+        kafka_producer = get_kafka_producer()
+        if kafka_producer:
+            # Publish system shutdown event
+            kafka_producer.publish_system_alert({
+                'type': 'system_shutdown',
+                'severity': 'INFO',
+                'message': 'Wolfinch trading system shutting down',
+                'details': {'timestamp': time.time()}
+            })
+            kafka_producer.flush()
+            kafka_producer.close()
+            log.info("Kafka producer closed")
+    except Exception as e:
+        log.error(f"Error closing Kafka producer: {e}")
+    
     exchanges.close_exchanges()
 
     # stop stats thread
@@ -245,6 +382,33 @@ def process_market(market):
 #     processing routine for one exchange
 #     """
     log.debug("processing Market: exchange(%s)product: %s" %(market.exchange_name, market.name))
+    
+    # Update Prometheus metrics for this market
+    try:
+        from infra.metrics import get_prometheus_exporter
+        exporter = get_prometheus_exporter()
+        if exporter:
+            # Update position count
+            if hasattr(market, 'order_book') and hasattr(market.order_book, 'open_positions'):
+                position_count = len(market.order_book.open_positions)
+                strategy_name = getattr(market, 'strategy_name', 'default')
+                exporter.update_position_count(
+                    market.exchange_name,
+                    market.product_id,
+                    strategy_name,
+                    position_count
+                )
+            
+            # Update market price if available
+            if hasattr(market, 'cur_close') and market.cur_close:
+                exporter.update_market_price(
+                    market.exchange_name,
+                    market.product_id,
+                    float(market.cur_close)
+                )
+    except Exception as e:
+        log.debug(f"Error updating Prometheus metrics: {e}")
+    
     # update various market states on tick
     market.update_market_states()
 

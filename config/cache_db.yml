@@ -27,7 +27,7 @@
 redis:
   enabled: true
   host: 'localhost'  # Use 'redis' if running Wolfinch in Docker
-  port: 6379
+  port: 6380
   db: 0  # Database number (0-15)
   password: null  # No password for local development
   
@@ -43,7 +43,7 @@ redis:
 # Replaces SQLite for better performance and accuracy
 influxdb:
   enabled: true
-  url: 'http://localhost:8086'  # Use 'http://influxdb:8086' if running Wolfinch in Docker
+  url: 'http://localhost:8087'  # Use 'http://influxdb:8086' if running Wolfinch in Docker
   token: 'wolfinch-super-secret-token-change-in-production'  # From docker-compose.yml
   org: 'wolfinch'
   bucket: 'trading'

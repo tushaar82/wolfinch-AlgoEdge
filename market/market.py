@@ -42,6 +42,23 @@ import db
 import sims
 import strategy
 
+# Import monitoring and logging modules
+try:
+    from db import get_trade_logger, get_postgres_logger
+except ImportError:
+    get_trade_logger = lambda: None
+    get_postgres_logger = lambda: None
+
+try:
+    from infra.kafka.kafka_producer import get_kafka_producer
+except ImportError:
+    get_kafka_producer = lambda: None
+
+try:
+    from infra.metrics import get_prometheus_exporter
+except ImportError:
+    get_prometheus_exporter = lambda: None
+
 from sqlalchemy import *
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -666,12 +683,12 @@ class Market:
             # stats
             self.num_buy_order_success += 1
             
-            # Log order filled to InfluxDB
+            # Comprehensive logging to all systems
             try:
-                from db import get_trade_logger
-                logger = get_trade_logger()
-                if logger and logger.is_enabled():
-                    logger.log_order_filled(
+                # 1. Log to InfluxDB (TradeLogger)
+                trade_logger = get_trade_logger()
+                if trade_logger and trade_logger.is_enabled():
+                    trade_logger.log_order_filled(
                         exchange=self.exchange_name,
                         product=self.product_id,
                         order=market_order,
@@ -681,7 +698,7 @@ class Market:
                         market_data={'price': self.get_market_rate()}
                     )
                     # Also log position opened
-                    logger.log_position_opened(
+                    trade_logger.log_position_opened(
                         exchange=self.exchange_name,
                         product=self.product_id,
                         position=market_order,
@@ -692,8 +709,52 @@ class Market:
                             'take_profit': market_order.profit if hasattr(market_order, 'profit') else 0
                         }
                     )
+                
+                # 2. Log to PostgreSQL (Audit)
+                postgres_logger = get_postgres_logger()
+                if postgres_logger and postgres_logger.is_enabled():
+                    postgres_logger.log_trade(
+                        exchange=self.exchange_name,
+                        symbol=self.product_id,
+                        action='BUY',
+                        order_type='MARKET',
+                        quantity=market_order.filled_size,
+                        price=market_order.price,
+                        status='filled',
+                        order_id=str(market_order.id),
+                        strategy=getattr(self, 'strategy_name', 'default'),
+                        metadata={
+                            'fees': market_order.fees,
+                            'order_cost': order_cost,
+                            'avg_buy_price': self.fund.current_avg_buy_price
+                        }
+                    )
+                
+                # 3. Publish to Kafka
+                kafka_producer = get_kafka_producer()
+                if kafka_producer and kafka_producer.enabled:
+                    kafka_producer.publish_order_executed({
+                        'id': str(market_order.id),
+                        'symbol': self.product_id,
+                        'side': 'buy',
+                        'quantity': market_order.filled_size,
+                        'executed_price': market_order.price,
+                        'execution_time': time.time(),
+                        'broker_order_id': str(market_order.id)
+                    })
+                
+                # 4. Record Prometheus metrics
+                prometheus_exporter = get_prometheus_exporter()
+                if prometheus_exporter:
+                    prometheus_exporter.record_order(
+                        self.exchange_name,
+                        self.product_id,
+                        'buy',
+                        'market',
+                        'filled'
+                    )
             except Exception as e:
-                log.debug(f"Trade logging failed: {e}")
+                log.debug(f"Comprehensive logging failed: {e}")
         else:
             log.critical("Invalid Market_order filled order:%s" % (str(order)))
 #             raise Exception("Invalid Market_order filled order:%s"%(str(order)))
@@ -773,13 +834,29 @@ class Market:
             log.info ("SELL FILLED>>> filled_size:%s price:%s " % (
                 round(market_order.filled_size, 4), round(market_order.price, 4)))
             
-            # Log order filled and position closed to InfluxDB
+            # Comprehensive logging to all systems
             try:
-                from db import get_trade_logger
                 import time
-                logger = get_trade_logger()
-                if logger and logger.is_enabled():
-                    logger.log_order_filled(
+                
+                # Calculate P&L for position closed
+                position = self.order_book.get_position_by_id(market_order._pos_id) if hasattr(market_order, '_pos_id') else None
+                pnl = 0
+                pnl_percent = 0
+                duration = 0
+                entry_price = 0
+                
+                if position and hasattr(position, 'buy'):
+                    entry_price = position.buy.price
+                    exit_price = market_order.price
+                    size = market_order.filled_size
+                    pnl = (exit_price - entry_price) * size - market_order.fees
+                    pnl_percent = ((exit_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
+                    duration = int(time.time()) - position.buy.timestamp if hasattr(position.buy, 'timestamp') else 0
+                
+                # 1. Log to InfluxDB (TradeLogger)
+                trade_logger = get_trade_logger()
+                if trade_logger and trade_logger.is_enabled():
+                    trade_logger.log_order_filled(
                         exchange=self.exchange_name,
                         product=self.product_id,
                         order=market_order,
@@ -789,29 +866,103 @@ class Market:
                         market_data={'price': self.get_market_rate()}
                     )
                     
-                    # Calculate P&L for position closed
-                    # Get the corresponding buy order from position
-                    position = self.order_book.get_position_by_id(market_order._pos_id) if hasattr(market_order, '_pos_id') else None
                     if position and hasattr(position, 'buy'):
-                        entry_price = position.buy.price
-                        exit_price = market_order.price
-                        size = market_order.filled_size
-                        pnl = (exit_price - entry_price) * size - market_order.fees
-                        pnl_percent = ((exit_price - entry_price) / entry_price) * 100 if entry_price > 0 else 0
-                        duration = int(time.time()) - position.buy.timestamp if hasattr(position.buy, 'timestamp') else 0
-                        
-                        logger.log_position_closed(
+                        trade_logger.log_position_closed(
                             exchange=self.exchange_name,
                             product=self.product_id,
                             position=position,
-                            exit_price=exit_price,
+                            exit_price=market_order.price,
                             pnl=pnl,
                             pnl_percent=pnl_percent,
                             duration_seconds=duration,
                             reason='strategy'
                         )
+                
+                # 2. Log to PostgreSQL (Audit)
+                postgres_logger = get_postgres_logger()
+                if postgres_logger and postgres_logger.is_enabled():
+                    postgres_logger.log_trade(
+                        exchange=self.exchange_name,
+                        symbol=self.product_id,
+                        action='SELL',
+                        order_type='MARKET',
+                        quantity=market_order.filled_size,
+                        price=market_order.price,
+                        status='filled',
+                        order_id=str(market_order.id),
+                        strategy=getattr(self, 'strategy_name', 'default'),
+                        metadata={
+                            'fees': market_order.fees,
+                            'order_cost': order_cost,
+                            'pnl': pnl,
+                            'pnl_percent': pnl_percent,
+                            'entry_price': entry_price,
+                            'duration_seconds': duration
+                        }
+                    )
+                    
+                    # Log position change
+                    if position:
+                        postgres_logger.log_position_change(
+                            symbol=self.product_id,
+                            action='CLOSE',
+                            quantity=market_order.filled_size,
+                            price=market_order.price,
+                            pnl=pnl,
+                            metadata={
+                                'entry_price': entry_price,
+                                'exit_price': market_order.price,
+                                'duration_seconds': duration
+                            }
+                        )
+                
+                # 3. Publish to Kafka
+                kafka_producer = get_kafka_producer()
+                if kafka_producer and kafka_producer.enabled:
+                    kafka_producer.publish_order_executed({
+                        'id': str(market_order.id),
+                        'symbol': self.product_id,
+                        'side': 'sell',
+                        'quantity': market_order.filled_size,
+                        'executed_price': market_order.price,
+                        'execution_time': time.time(),
+                        'broker_order_id': str(market_order.id)
+                    })
+                    
+                    if position:
+                        kafka_producer.publish_trade_completed({
+                            'trade_id': str(market_order._pos_id) if hasattr(market_order, '_pos_id') else str(market_order.id),
+                            'symbol': self.product_id,
+                            'side': 'sell',
+                            'quantity': market_order.filled_size,
+                            'entry_price': entry_price,
+                            'exit_price': market_order.price,
+                            'pnl': pnl,
+                            'commission': market_order.fees,
+                            'strategy': getattr(self, 'strategy_name', 'default')
+                        })
+                
+                # 4. Record Prometheus metrics
+                prometheus_exporter = get_prometheus_exporter()
+                if prometheus_exporter:
+                    prometheus_exporter.record_order(
+                        self.exchange_name,
+                        self.product_id,
+                        'sell',
+                        'market',
+                        'filled'
+                    )
+                    
+                    if position:
+                        prometheus_exporter.record_trade(
+                            self.exchange_name,
+                            self.product_id,
+                            pnl,
+                            duration,
+                            getattr(self, 'strategy_name', 'default')
+                        )
             except Exception as e:
-                log.debug(f"Trade logging failed: {e}")
+                log.debug(f"Comprehensive logging failed: {e}")
         else:
             log.critical("Invalid Market_order filled order:%s" % (str(order)))
 #             raise Exception("Invalid Market_order filled order:%s"%(str(order)))

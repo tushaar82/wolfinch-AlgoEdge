@@ -5,8 +5,12 @@ exchanges:
   - 'openalgo':
       role: 'primary'
       config: 'config/openalgo.yml'
+      order_type: market  # market or limit
+      fee:
+        maker: 0.03  # NSE FNO brokerage ~0.03%
+        taker: 0.03  # NSE FNO brokerage ~0.03%
       products:
-        - 'NFO:NIFTY-24JAN25-22000-CE':
+        - 'NFO:BANKNIFTY25NOV2546500PE':
             active: true
             # Max capital to deploy for this product
             fund_max_liquidity: 100000
@@ -71,7 +75,7 @@ simulator:
 # Web UI Configuration
 ui:
   enabled: true
-  port: 8080
+  port: 8089
   host: '0.0.0.0'
 
 # Database Configuration

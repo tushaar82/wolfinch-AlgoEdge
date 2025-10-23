@@ -1,0 +1,27 @@
+apiVersion: 1
+
+datasources:
+  # InfluxDB datasource
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    jsonData:
+      version: Flux
+      organization: wolfinch
+      defaultBucket: trading
+      tlsSkipVerify: true
+    secureJsonData:
+      token: wolfinch-super-secret-token-change-in-production
+    isDefault: true
+    editable: true
+
+  # Prometheus datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: false
+    editable: true
+    jsonData:
+      timeInterval: "15s"

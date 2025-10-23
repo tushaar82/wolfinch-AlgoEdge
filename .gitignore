@@ -2,4 +2,121 @@
 /.pydevproject
 /.raw_data
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups
+backups/
+*.tar.gz
+*.zip
+
+# Docker
+.docker/
+
+# Test coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Data files
+data/*.json
+data/*.csv
+!data/README.md
+
+# Temporary files
+*.tmp
+*.temp
+
+# API Keys and Secrets
+config/*_secret.yml
+config/*_private.yml
+*.pem
+*.key
+
+# PID files
+wolfinch.pid
+data/wolfinch.pid
+*.pid
+
+# Redis dumps
+dump.rdb
+data/dump.rdb
+*.rdb
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Coverage reports
+coverage.xml
+
+# Type checker and linter caches
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# OS files
+Thumbs.db
+
+# Editor workspaces
+*.code-workspace
+
+# Local override configs
+docker-compose.override.yml
+config/*.local.yml
+config/*local*.yml
+
+# Backup artifacts
+backups/
+*.tgz
+*.tar
+*.gz
+
+# Temporary outputs
+nohup.out

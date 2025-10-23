@@ -1,0 +1,188 @@
+groups:
+  - name: trading_alerts
+    interval: 30s
+    rules:
+      # High order rejection rate
+      - alert: HighOrderRejectionRate
+        expr: rate(wolfinch_orders_rejected_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: trading
+        annotations:
+          summary: "High order rejection rate detected"
+          description: "Order rejection rate is {{ $value }} per second for {{ $labels.exchange }} {{ $labels.symbol }}"
+
+      # No orders placed (system might be stuck)
+      - alert: NoOrdersPlaced
+        expr: rate(wolfinch_orders_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: critical
+          component: trading
+        annotations:
+          summary: "No orders placed in last 30 minutes"
+          description: "Trading system may be stuck - no orders placed for {{ $labels.exchange }}"
+
+      # Unusual P&L swing
+      - alert: UnusualPnLSwing
+        expr: abs(rate(wolfinch_trade_pnl_sum[5m])) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: trading
+        annotations:
+          summary: "Unusual P&L swing detected"
+          description: "P&L changed by {{ $value }} in 5 minutes for {{ $labels.strategy }}"
+
+      # Position count exceeds limit
+      - alert: TooManyOpenPositions
+        expr: wolfinch_positions_open > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: trading
+        annotations:
+          summary: "Too many open positions"
+          description: "{{ $value }} open positions for {{ $labels.exchange }} {{ $labels.symbol }}"
+
+      # Stop loss triggered multiple times
+      - alert: FrequentStopLosses
+        expr: rate(wolfinch_positions_closed_total{outcome="loss"}[1h]) > 0.5
+        for: 1h
+        labels:
+          severity: warning
+          component: trading
+        annotations:
+          summary: "Frequent stop losses detected"
+          description: "Stop loss triggered {{ $value }} times per second for {{ $labels.strategy }}"
+
+  - name: system_alerts
+    interval: 30s
+    rules:
+      # API error rate high
+      - alert: HighAPIErrorRate
+        expr: rate(wolfinch_api_errors_total[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High API error rate"
+          description: "API error rate is {{ $value }} per second for {{ $labels.exchange }}"
+
+      # InfluxDB write failures
+      - alert: InfluxDBWriteFailures
+        expr: rate(wolfinch_influxdb_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "InfluxDB write failures detected"
+          description: "InfluxDB error rate is {{ $value }} per second"
+
+      # PostgreSQL write failures
+      - alert: PostgreSQLWriteFailures
+        expr: rate(wolfinch_postgres_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: database
+        annotations:
+          summary: "PostgreSQL write failures detected"
+          description: "PostgreSQL error rate is {{ $value }} per second"
+
+      # Kafka producer errors
+      - alert: KafkaProducerErrors
+        expr: rate(wolfinch_kafka_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: messaging
+        annotations:
+          summary: "Kafka producer errors detected"
+          description: "Kafka error rate is {{ $value }} per second"
+
+      # API latency high
+      - alert: HighAPILatency
+        expr: histogram_quantile(0.95, rate(wolfinch_api_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High API latency detected"
+          description: "95th percentile API latency is {{ $value }}s for {{ $labels.exchange }}"
+
+  - name: performance_alerts
+    interval: 60s
+    rules:
+      # Account balance dropped below threshold
+      - alert: LowAccountBalance
+        expr: wolfinch_account_balance < 1000
+        for: 5m
+        labels:
+          severity: critical
+          component: trading
+        annotations:
+          summary: "Low account balance"
+          description: "Account balance is {{ $value }} {{ $labels.currency }} for {{ $labels.exchange }}"
+
+      # Max drawdown exceeded
+      - alert: MaxDrawdownExceeded
+        expr: wolfinch_max_drawdown > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: trading
+        annotations:
+          summary: "Maximum drawdown exceeded"
+          description: "Drawdown is {{ $value }} for {{ $labels.strategy }}"
+
+      # Win rate dropped below threshold
+      - alert: LowWinRate
+        expr: wolfinch_win_rate < 0.4
+        for: 1h
+        labels:
+          severity: warning
+          component: trading
+        annotations:
+          summary: "Win rate dropped below threshold"
+          description: "Win rate is {{ $value }} for {{ $labels.strategy }}"
+
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # Redis down
+      - alert: RedisDown
+        expr: up{job="redis-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Redis is down"
+          description: "Redis exporter is not responding"
+
+      # PostgreSQL down
+      - alert: PostgreSQLDown
+        expr: up{job="postgres-exporter"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL exporter is not responding"
+
+      # Wolfinch app down
+      - alert: WolfinchAppDown
+        expr: up{job="wolfinch-app"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: application
+        annotations:
+          summary: "Wolfinch application is down"
+          description: "Wolfinch metrics endpoint is not responding"

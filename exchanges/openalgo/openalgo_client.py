@@ -135,7 +135,8 @@ class OpenAlgo(Exchange):
 
         # Initialize OpenAlgo client
         try:
-            self.client = openalgo_api.OpenAlgoClient(api_key=api_key, host_url=host_url)
+            # OpenAlgo api is a class instance, not a module with OpenAlgoClient
+            self.client = openalgo_api(api_key=api_key, host=host_url)
             log.info(f"OpenAlgo client initialized with host: {host_url}")
         except Exception as e:
             log.critical(f"Unable to initialize OpenAlgo client: {e}")
@@ -151,14 +152,28 @@ class OpenAlgo(Exchange):
         if self.openalgo_conf.get('products'):
             for prod in self.openalgo_conf['products']:
                 for symbol, details in prod.items():
+                    # Extract base symbol for lot size lookup
+                    # Handle both old format (NIFTY-24JAN25-22000-CE) and new format (BANKNIFTY25NOV2546500PE)
+                    base_symbol = symbol.replace('NFO:', '')
+                    if '-' in base_symbol:
+                        # Old format with dashes
+                        base_symbol = base_symbol.split('-')[0]
+                    else:
+                        # New format without dashes - extract underlying (BANKNIFTY, NIFTY, etc.)
+                        # Format: BANKNIFTY25NOV2546500PE -> BANKNIFTY
+                        import re
+                        match = re.match(r'^([A-Z]+)', base_symbol)
+                        if match:
+                            base_symbol = match.group(1)
+                    
                     product_info = {
-                        'id': details.get('id', symbol),
+                        'id': symbol,  # Use full symbol with NFO: prefix to match config
                         'symbol': symbol,
                         'display_name': details.get('display_name', symbol),
                         'exchange': details.get('exchange', 'NSE'),
                         'segment': details.get('segment', 'FNO'),
                         'instrument_type': details.get('instrument_type', 'OPTIDX'),
-                        'lot_size': self.lot_sizes.get(symbol.replace('NFO:', '').split('-')[0], 1),
+                        'lot_size': self.lot_sizes.get(base_symbol, 1),
                         'asset_type': details.get('asset_type', 'OPTIONS'),
                         'fund_type': details.get('fund_type', 'INR')
                     }
@@ -463,11 +478,176 @@ class OpenAlgo(Exchange):
         except Exception as e:
             log.error(f"Error closing position: {e}")
             return False
+    
+    def modify_order(self, order_id, new_price=None, new_quantity=None):
+        """Modify an existing order"""
+        try:
+            log.info(f"Modifying order: {order_id}, new_price: {new_price}, new_quantity: {new_quantity}")
+            
+            # Get existing order details
+            order = self.get_order(order_id)
+            if not order:
+                log.error(f"Order not found: {order_id}")
+                return False
+            
+            # OpenAlgo modify order API
+            modify_params = {
+                'orderid': order_id
+            }
+            
+            if new_price is not None:
+                modify_params['price'] = new_price
+            if new_quantity is not None:
+                modify_params['quantity'] = new_quantity
+            
+            response = self.client.modifyorder(**modify_params)
+            
+            if response and response.get('status') == 'success':
+                log.info(f"Order modified successfully: {order_id}")
+                return True
+            else:
+                log.error(f"Modify order failed: {response}")
+                return False
+                
+        except Exception as e:
+            log.error(f"Error modifying order: {e}")
+            return False
+    
+    def cancel_all_orders(self, symbol=None):
+        """Cancel all open orders for a symbol or all symbols"""
+        try:
+            log.info(f"Canceling all orders for: {symbol if symbol else 'all symbols'}")
+            
+            orders = self.get_product_order_book(None)
+            canceled_count = 0
+            
+            for order in orders:
+                if symbol is None or order.get('symbol') == symbol:
+                    if order.get('status') in ['open', 'pending', 'trigger_pending']:
+                        if self.cancel_order(order.get('orderid')):
+                            canceled_count += 1
+            
+            log.info(f"Canceled {canceled_count} orders")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error canceling all orders: {e}")
+            return False
+    
+    def get_order_history(self, symbol=None, limit=500):
+        """Get order history"""
+        try:
+            # OpenAlgo orderbook returns all orders
+            response = self.client.orderbook()
+            
+            if response and 'data' in response:
+                orders = response['data']
+                
+                # Filter by symbol if provided
+                if symbol:
+                    orders = [o for o in orders if o.get('symbol') == symbol]
+                
+                # Limit results
+                return orders[:limit]
+            
+            return []
+            
+        except Exception as e:
+            log.error(f"Error getting order history: {e}")
+            return []
+    
+    def get_trade_history(self, symbol=None, limit=500):
+        """Get trade history"""
+        try:
+            # OpenAlgo tradebook API
+            response = self.client.tradebook()
+            
+            if response and 'data' in response:
+                trades = response['data']
+                
+                # Filter by symbol if provided
+                if symbol:
+                    trades = [t for t in trades if t.get('symbol') == symbol]
+                
+                # Limit results
+                return trades[:limit]
+            
+            return []
+            
+        except Exception as e:
+            log.error(f"Error getting trade history: {e}")
+            return []
+    
+    def get_account_balance(self):
+        """Get detailed account balance"""
+        try:
+            response = self.client.funds()
+            
+            if response and 'data' in response:
+                return response['data']
+            
+            return {}
+            
+        except Exception as e:
+            log.error(f"Error getting account balance: {e}")
+            return {}
+    
+    def get_margin_info(self, symbol=None):
+        """Get margin information"""
+        try:
+            # Get account info which includes margin details
+            account_info = self.get_account_balance()
+            
+            margin_info = {
+                'available_margin': float(account_info.get('availablecash', 0)),
+                'used_margin': float(account_info.get('m2munrealized', 0)),
+                'total_margin': float(account_info.get('availablecash', 0)) + float(account_info.get('m2munrealized', 0))
+            }
+            
+            return margin_info
+            
+        except Exception as e:
+            log.error(f"Error getting margin info: {e}")
+            return {}
+
+    def market_init(self, market):
+        """Initialize market with account balances"""
+        try:
+            # Get account info
+            account_info = self._get_account_info()
+            
+            if not account_info:
+                log.error(f"No account information available for product: {market.product_id}")
+                return None
+            
+            # Setup initial fund values from account
+            # OpenAlgo returns available balance and used margin
+            available_balance = float(account_info.get('availablecash', 0))
+            used_margin = float(account_info.get('m2munrealized', 0))
+            
+            # Set fund values
+            market.fund.set_initial_value(available_balance)
+            market.fund.set_hold_value(used_margin)
+            
+            # For options/futures, asset size is in lots
+            # Initially set to 0 as we don't have open positions yet
+            market.asset.set_initial_size(0)
+            market.asset.set_hold_size(0)
+            
+            # Set candle interval
+            market.set_candle_interval(self.candle_interval)
+            
+            log.info(f"Market init complete: {market.product_id} (Balance: {available_balance}, Margin: {used_margin})")
+            return market
+            
+        except Exception as e:
+            log.error(f"Error initializing market: {e}")
+            return None
 
     def close(self):
-        """Close exchange connection"""
+        """Close OpenAlgo exchange connection"""
         log.info("Closing OpenAlgo exchange connection")
-        # OpenAlgo SDK doesn't require explicit connection closing
+        # No specific cleanup needed for OpenAlgo
         pass
 
     def __str__(self):

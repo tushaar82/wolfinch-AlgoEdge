@@ -27,11 +27,18 @@ class WolfinchKafkaProducer:
         'ORDERS_SUBMITTED': 'wolfinch.orders.submitted',
         'ORDERS_EXECUTED': 'wolfinch.orders.executed',
         'ORDERS_REJECTED': 'wolfinch.orders.rejected',
+        'ORDERS_MODIFIED': 'wolfinch.orders.modified',
         'TRADES_COMPLETED': 'wolfinch.trades.completed',
         'POSITIONS_UPDATED': 'wolfinch.positions.updated',
         'RISKS_BREACHED': 'wolfinch.risks.breached',
         'SYSTEM_ALERTS': 'wolfinch.system.alerts',
-        'MARKET_DATA': 'wolfinch.market.data'
+        'MARKET_DATA': 'wolfinch.market.data',
+        'ACCOUNT_UPDATED': 'wolfinch.account.updated',
+        'MARKET_DATA_UPDATED': 'wolfinch.market.updated',
+        'INDICATORS_CALCULATED': 'wolfinch.indicators.calculated',
+        'STRATEGY_SIGNALS': 'wolfinch.strategy.signals',
+        'PERFORMANCE_SNAPSHOTS': 'wolfinch.performance.snapshots',
+        'ERROR_EVENTS': 'wolfinch.errors'
     }
 
     def __init__(self, bootstrap_servers='localhost:9093', enabled=True):
@@ -224,6 +231,165 @@ class WolfinchKafkaProducer:
             key=market_data.get('symbol'),
             event=event
         )
+    
+    def publish_order_modified(self, order, old_price, new_price, old_quantity, new_quantity):
+        """Publish order modification event"""
+        event = self._create_event('ORDER_MODIFIED', {
+            'order_id': order.get('id'),
+            'symbol': order.get('symbol'),
+            'old_price': old_price,
+            'new_price': new_price,
+            'old_quantity': old_quantity,
+            'new_quantity': new_quantity
+        })
+        
+        return self._send_event(
+            self.TOPICS['ORDERS_MODIFIED'],
+            key=order.get('id'),
+            event=event
+        )
+    
+    def publish_account_update(self, account_info):
+        """Publish account balance/margin update event"""
+        event = self._create_event('ACCOUNT_UPDATED', {
+            'balance': account_info.get('balance'),
+            'available_margin': account_info.get('available_margin'),
+            'used_margin': account_info.get('used_margin'),
+            'equity': account_info.get('equity')
+        })
+        
+        return self._send_event(
+            self.TOPICS['ACCOUNT_UPDATED'],
+            key='account',
+            event=event
+        )
+    
+    def publish_market_data_update(self, symbol, price, volume, bid, ask):
+        """Publish market data snapshot"""
+        event = self._create_event('MARKET_DATA_UPDATED', {
+            'symbol': symbol,
+            'price': price,
+            'volume': volume,
+            'bid': bid,
+            'ask': ask,
+            'spread': ask - bid if ask and bid else 0
+        })
+        
+        return self._send_event(
+            self.TOPICS['MARKET_DATA_UPDATED'],
+            key=symbol,
+            event=event
+        )
+    
+    def publish_indicator_calculated(self, symbol, indicator_name, value, timestamp):
+        """Publish indicator calculation event"""
+        event = self._create_event('INDICATOR_CALCULATED', {
+            'symbol': symbol,
+            'indicator': indicator_name,
+            'value': value,
+            'calc_timestamp': timestamp
+        })
+        
+        return self._send_event(
+            self.TOPICS['INDICATORS_CALCULATED'],
+            key=f"{symbol}:{indicator_name}",
+            event=event
+        )
+    
+    def publish_strategy_signal(self, strategy, symbol, signal_type, strength, metadata=None):
+        """Publish strategy signal event"""
+        event = self._create_event('STRATEGY_SIGNAL', {
+            'strategy': strategy,
+            'symbol': symbol,
+            'signal_type': signal_type,
+            'strength': strength,
+            'metadata': metadata or {}
+        })
+        
+        return self._send_event(
+            self.TOPICS['STRATEGY_SIGNALS'],
+            key=f"{strategy}:{symbol}",
+            event=event
+        )
+    
+    def publish_performance_snapshot(self, strategy, metrics):
+        """Publish performance metrics snapshot"""
+        event = self._create_event('PERFORMANCE_SNAPSHOT', {
+            'strategy': strategy,
+            'metrics': metrics
+        })
+        
+        return self._send_event(
+            self.TOPICS['PERFORMANCE_SNAPSHOTS'],
+            key=strategy,
+            event=event
+        )
+    
+    def publish_error_event(self, component, error_type, message, stack_trace=None):
+        """Publish error tracking event"""
+        event = self._create_event('ERROR_EVENT', {
+            'component': component,
+            'error_type': error_type,
+            'message': message,
+            'stack_trace': stack_trace
+        })
+        
+        return self._send_event(
+            self.TOPICS['ERROR_EVENTS'],
+            key=component,
+            event=event
+        )
+    
+    def publish_batch(self, events):
+        """Publish multiple events efficiently"""
+        if not self.enabled or not self.producer:
+            log.warning("Kafka producer disabled, batch not sent")
+            return False
+        
+        try:
+            for event_data in events:
+                topic = event_data.get('topic')
+                key = event_data.get('key')
+                event = event_data.get('event')
+                
+                self.producer.send(topic, key=key, value=event)
+            
+            self.producer.flush()
+            log.debug(f"Batch of {len(events)} events sent")
+            return True
+            
+        except Exception as e:
+            log.error(f"Error sending batch: {e}")
+            return False
+    
+    def is_healthy(self):
+        """Check Kafka connection status"""
+        if not self.enabled or not self.producer:
+            return False
+        
+        try:
+            # Try to get cluster metadata as health check
+            self.producer.bootstrap_connected()
+            return True
+        except Exception as e:
+            log.error(f"Kafka health check failed: {e}")
+            return False
+    
+    def get_metrics(self):
+        """Get producer metrics"""
+        if not self.producer:
+            return {}
+        
+        try:
+            metrics = self.producer.metrics()
+            return {
+                'messages_sent': metrics.get('record-send-total', {}).get('value', 0),
+                'errors': metrics.get('record-error-total', {}).get('value', 0),
+                'latency_avg': metrics.get('record-send-rate', {}).get('value', 0)
+            }
+        except Exception as e:
+            log.error(f"Error getting metrics: {e}")
+            return {}
 
     def flush(self):
         """Flush any pending messages"""

@@ -17,6 +17,7 @@ NC='\033[0m'
 WOLFINCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${WOLFINCH_DIR}/data"
 PID_FILE="${DATA_DIR}/wolfinch.pid"
+ROOT_PID_FILE="${WOLFINCH_DIR}/wolfinch.pid"
 STOP_DOCKER="${1:-no}"
 
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -24,12 +25,20 @@ echo -e "${BLUE}  Wolfinch AlgoEdge - Graceful Shutdown${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Check if PID file exists
-if [ ! -f "${PID_FILE}" ]; then
+# Check if PID file exists (check both locations)
+if [ -f "${ROOT_PID_FILE}" ]; then
+    PID=$(cat "${ROOT_PID_FILE}")
+    ACTIVE_PID_FILE="${ROOT_PID_FILE}"
+elif [ -f "${PID_FILE}" ]; then
+    PID=$(cat "${PID_FILE}")
+    ACTIVE_PID_FILE="${PID_FILE}"
+else
     echo -e "${YELLOW}⚠ Wolfinch is not running (no PID file)${NC}"
     PID=0
-else
-    PID=$(cat "${PID_FILE}")
+    ACTIVE_PID_FILE=""
+fi
+
+if [ "$PID" -gt 0 ]; then
 
     # Check if process is actually running
     if ! ps -p "$PID" > /dev/null 2>&1; then
@@ -64,7 +73,7 @@ if [ "$PID" -gt 0 ]; then
     # Verify process stopped
     if ! ps -p "$PID" > /dev/null 2>&1; then
         echo -e "\n${GREEN}✓${NC} Wolfinch stopped successfully"
-        rm -f "${PID_FILE}"
+        rm -f "${PID_FILE}" "${ROOT_PID_FILE}"
     else
         echo -e "\n${RED}✗${NC} Failed to stop Wolfinch"
         exit 1

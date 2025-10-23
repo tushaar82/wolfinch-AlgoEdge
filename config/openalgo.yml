@@ -3,7 +3,8 @@ exchange:
 
   # OpenAlgo API Configuration
   # Get your API key from OpenAlgo dashboard
-  apiKey: 'your-openalgo-api-key-here'
+  # For testing, you can use a test key or get one from http://127.0.0.1:5000
+  apiKey: '6f43b2f2eafd8b5830d6ffe6ff3977a388b9e280a3be36f56e2e5f0918215d83'
 
   # OpenAlgo host URL (default: local installation)
   hostUrl: 'http://127.0.0.1:5000'
@@ -12,9 +13,9 @@ exchange:
   # Format: 'SYMBOL': {config}
   products:
     # Index Options
-    - 'NFO:NIFTY-24JAN25-22000-CE':
-        id: 'NIFTY-24JAN25-22000-CE'
-        display_name: 'NIFTY 22000 CE'
+    - 'NFO:BANKNIFTY25NOV2546500PE':
+        id: 'BANKNIFTY25NOV2546500PE'
+        display_name: 'BANKNIFTY25NOV2546500PE'
         exchange: 'NFO'
         segment: 'FNO'
         instrument_type: 'OPTIDX'
@@ -22,9 +23,9 @@ exchange:
         asset_type: 'OPTIONS'
         fund_type: 'INR'
 
-    - 'NFO:NIFTY-24JAN25-22000-PE':
-        id: 'NIFTY-24JAN25-22000-PE'
-        display_name: 'NIFTY 22000 PE'
+    - 'NFO:NIFTY30JUN2630000CE':
+        id: 'NIFTY30JUN2630000CE'
+        display_name: 'NIFTY30JUN2630000CE'
         exchange: 'NFO'
         segment: 'FNO'
         instrument_type: 'OPTIDX'
@@ -32,9 +33,9 @@ exchange:
         asset_type: 'OPTIONS'
         fund_type: 'INR'
 
-    - 'NFO:BANKNIFTY-24JAN25-48000-CE':
-        id: 'BANKNIFTY-24JAN25-48000-CE'
-        display_name: 'BANKNIFTY 48000 CE'
+    - 'NFO:SBIN28OCT25770PE':
+        id: 'SBIN28OCT25770PE'
+        display_name: 'SBIN28OCT25770PE'
         exchange: 'NFO'
         segment: 'FNO'
         instrument_type: 'OPTIDX'

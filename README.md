@@ -1,104 +1,276 @@
-# Wolfinch AlgoEdge - Professional NSE FNO Trading System
+# Wolfinch AlgoEdge - Production Trading Platform
 
-<div align="center">
+A comprehensive algorithmic trading platform with deep integration of Kafka, InfluxDB, PostgreSQL, Grafana, and Prometheus.
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
-![License](https://img.shields.io/badge/License-GPL%20v3-green.svg)
-![OpenAlgo](https://img.shields.io/badge/Broker-OpenAlgo-orange.svg)
-![NSE](https://img.shields.io/badge/Market-NSE%20FNO-red.svg)
+## Features
 
-**Advanced algorithmic trading system for NSE F&O Options trading with OpenAlgo integration**
+- **Multi-Exchange Support**: Binance, OpenAlgo, Paper Trading
+- **Real-time Monitoring**: Prometheus metrics + Grafana dashboards
+- **Comprehensive Logging**: InfluxDB (time-series) + PostgreSQL (audit) + Kafka (events)
+- **High Performance**: Redis caching for hot data
+- **Production Ready**: Health checks, alerting, backup strategies
+- **Extensible**: Plugin architecture for strategies and indicators
 
-</div>
+## Architecture
 
----
+```
+┌─────────────┐
+│  Wolfinch   │
+│   Engine    │
+└──────┬──────┘
+       │
+       ├──────► Exchanges (Binance, OpenAlgo)
+       ├──────► InfluxDB (Time-series data)
+       ├──────► PostgreSQL (Audit logs)
+       ├──────► Kafka (Event streaming)
+       ├──────► Redis (Caching)
+       └──────► Prometheus (Metrics)
+                    │
+                    ▼
+               Grafana (Dashboards)
+```
 
-## 🚀 Features
+## Quick Start
 
-### Core Capabilities
-- ✅ **OpenAlgo Broker Integration** - Seamless connectivity using OpenAlgo SDK
-- ✅ **NSE F&O Options Trading** - Full support for NIFTY, BANKNIFTY, FINNIFTY options
-- ✅ **Lot Size Management** - Automatic calculation based on NSE specifications
-- ✅ **7 Advanced Strategies** - Professional multi-timeframe algorithmic strategies
-- ✅ **Trailing Stop Loss** - Built-in trailing SL for all strategies
-- ✅ **Risk Management** - Daily loss limits with automatic order blocking
-- ✅ **Live P&L Tracking** - Real-time profit/loss monitoring
-- ✅ **Professional Dashboard** - Web-based UI for monitoring and control
-- ✅ **Comprehensive Logging** - Every trade and action logged to database
+### Prerequisites
 
----
+- Docker & Docker Compose
+- Python 3.8+
+- 4GB RAM minimum
 
-## 🚦 Quick Start
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd wolfinch-AlgoEdge
+   ```
+
+2. Copy environment template:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
+
+3. Start services:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Setup Python environment:
+   ```bash
+   ./setup_venv.sh
+   source venv/bin/activate
+   pip install -r requirement.txt
+   ```
+
+5. Start Wolfinch:
+   ```bash
+   ./start_wolfinch.sh --config config/your_config.yml
+   ```
+
+## Monitoring
+
+- **Grafana**: http://localhost:3001 (admin/wolfinch2024)
+- **Prometheus**: http://localhost:9090
+- **Kafka UI**: http://localhost:8090
+- **InfluxDB**: http://localhost:8087
+- **Redis Commander**: http://localhost:8081
+
+## Port Mappings
+
+- Redis: localhost:6380
+- InfluxDB: localhost:8087
+- PostgreSQL: localhost:5432
+- Kafka: localhost:9094
+- Zookeeper: localhost:2182
+- Grafana: localhost:3001
+- Prometheus: localhost:9090
+- Alertmanager: localhost:9093
+- Redis Commander: localhost:8081
+- Kafka UI: localhost:8090
+
+## Documentation
+
+- [Production Deployment Guide](docs/PRODUCTION_DEPLOYMENT.md)
+- [Monitoring Guide](docs/MONITORING_GUIDE.md)
+- [Database Schema](docs/DATABASE_SCHEMA.md)
+- [Docker Setup](docs/DOCKER_SETUP.md)
+
+## Testing
 
 ```bash
-# Start system
-./start.sh
+# Run all tests
+pytest tests/
 
-# Check health
-./health.sh
+# Run unit tests only
+pytest tests/ -m "not integration"
 
-# Access dashboard
-# Open browser: http://localhost:8080
-
-# Stop system
-./stop.sh
+# Run with coverage
+pytest tests/ --cov=. --cov-report=html
 ```
 
----
+## Backup
 
-## 📊 7 Trading Strategies
-
-1. **EMA_RSI_MTF** - Multi-timeframe EMA + RSI with trailing SL
-2. **Supertrend_ADX** - Supertrend + ADX with ATR-based SL
-3. **VWAP_BB** - VWAP + Bollinger Bands mean reversion
-4. **Triple_EMA_MACD** - Triple EMA crossover with MACD confirmation
-5. **RSI_Divergence_Stoch** - Divergence detection with Stochastic timing
-6. **Volume_Breakout_ATR** - Volume breakout with ATR stops
-7. **MTF_Trend_Following** - Multi-timeframe comprehensive trend following
-
-All strategies include built-in trailing stop loss mechanisms.
-
----
-
-## 🎯 Risk Management
-
-Configure in `config/wolfinch_openalgo_nifty.yml`:
-
-```yaml
-risk_management:
-  enabled: true
-  max_daily_loss: 5000           # ₹5000 daily loss limit
-  max_daily_loss_percent: 5      # 5% of capital
-  max_position_size: 10          # Max 10 lots per position
-  max_open_positions: 3          # Max 3 concurrent positions
+```bash
+./scripts/backup_databases.sh
 ```
 
-System automatically blocks trading when limits are breached.
+## Health Check
 
----
+```bash
+./scripts/health_check.sh
+```
 
-## 📚 Documentation
+## Configuration
 
-See full documentation in this README or visit the [Wiki](wiki).
+### Exchange Configuration
 
-**Management Scripts:**
-- `start.sh` - Start trading system
-- `stop.sh` - Graceful shutdown
-- `health.sh` - Health monitoring
-- `clean.sh` - Cleanup logs and data
+Edit `config/binance.yml` or `config/openalgo.yml` to configure exchange settings.
 
----
+### Strategy Configuration
 
-## ⚠️ Risk Disclaimer
+Edit `config/wolfinch_<strategy>.yml` to configure trading strategies.
 
-Algorithmic trading involves substantial risk. This software is provided "as is" without warranty. Always test with paper trading first.
+### Database Configuration
 
----
+All database credentials are in `.env` file. Default credentials:
+- PostgreSQL: wolfinch/wolfinch2024
+- InfluxDB: admin/wolfinch2024
+- Grafana: admin/wolfinch2024
 
-## 📄 License
+## Development
 
-GNU General Public License v3.0
+### Project Structure
 
----
+```
+wolfinch-AlgoEdge/
+├── config/              # Configuration files
+├── db/                  # Database modules
+├── decision/            # Decision making modules
+├── docs/                # Documentation
+├── exchanges/           # Exchange implementations
+├── indicators/          # Technical indicators
+├── infra/               # Infrastructure (Kafka, metrics)
+├── market/              # Market and order management
+├── risk/                # Risk management
+├── sims/                # Simulation and backtesting
+├── stats/               # Statistics and analytics
+├── strategy/            # Trading strategies
+├── tests/               # Test suite
+├── ui/                  # Web UI
+└── utils/               # Utility functions
+```
 
-**Happy Trading! 🚀**
+### Adding a New Exchange
+
+1. Create exchange client in `exchanges/<exchange_name>/`
+2. Implement methods from `exchanges/exchange_base.py`
+3. Add configuration in `config/<exchange_name>.yml`
+4. Register in exchange factory
+
+### Adding a New Strategy
+
+1. Create strategy in `strategy/strategies/<strategy_name>.py`
+2. Inherit from base strategy class
+3. Implement `generate_signal()` method
+4. Add configuration in `config/`
+
+## Monitoring & Observability
+
+### Prometheus Metrics
+
+The platform exports comprehensive metrics:
+- Trading metrics (orders, positions, P&L)
+- Performance metrics (win rate, Sharpe ratio, drawdown)
+- System metrics (API calls, database writes, errors)
+- Market data metrics (prices, volumes, indicators)
+
+Access metrics at: http://localhost:8000/metrics
+
+### Grafana Dashboards
+
+Pre-configured dashboards for:
+- Trading activity and performance
+- System health and infrastructure
+- Market data and indicators
+
+### Kafka Event Streaming
+
+All trading events are published to Kafka topics:
+- `wolfinch.orders.*` - Order events
+- `wolfinch.trades.*` - Trade events
+- `wolfinch.positions.*` - Position events
+- `wolfinch.market.*` - Market data
+- `wolfinch.strategy.*` - Strategy signals
+
+### Database Logging
+
+- **InfluxDB**: Time-series data (candles, indicators, metrics)
+- **PostgreSQL**: Audit logs (trades, system events, performance)
+- **Redis**: Hot data cache (recent candles, indicators)
+
+## Production Deployment
+
+See [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) for detailed production deployment guide.
+
+Key considerations:
+- Change all default passwords
+- Enable SSL/TLS for all services
+- Configure backup schedules
+- Set up monitoring alerts
+- Implement rate limiting
+- Use secrets management
+
+## Troubleshooting
+
+### Services not starting
+
+```bash
+# Check Docker logs
+docker-compose logs <service-name>
+
+# Restart services
+docker-compose restart
+```
+
+### Database connection issues
+
+```bash
+# Check database health
+./scripts/health_check.sh
+
+# Verify credentials in .env file
+```
+
+### Kafka connection issues
+
+```bash
+# Check Kafka UI
+http://localhost:8090
+
+# Verify Kafka is running
+docker-compose ps kafka
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## License
+
+GPL-3.0 - See LICENSE file
+
+## Support
+
+For issues and questions, please open a GitHub issue.
+
+## Acknowledgments
+
+- Built on the Wolfinch trading framework
+- Uses Binance and OpenAlgo APIs
+- Powered by InfluxDB, PostgreSQL, Kafka, Prometheus, and Grafana

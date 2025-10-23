@@ -30,6 +30,7 @@ from twisted.internet import reactor
 from binance.client import Client
 import binance.helpers
 from binance.websockets import BinanceSocketManager
+from binance.exceptions import BinanceAPIException, BinanceRequestException
 
 from utils import getLogger, readConf
 from market import Market, OHLC, feed_enQ, get_market_by_product, Order
@@ -369,20 +370,528 @@ class Binance (Exchange):
         return candles_list
         
     def get_product_order_book (self, product, level = 1):
-        log.debug ("get_product_order_book: ***********Not-Implemented******")
-        return None
-    def buy (self):
-        log.debug ("buy: ***********Not-Implemented******")
-        return None
-    def sell (self):
-        log.debug ("sell: ***********Not-Implemented******")
-        return None
-    def get_order (self):
-        log.debug ("get_order: ***********Not-Implemented******")
-        return None
-    def cancel_order (self):
-        log.debug ("cancel_order: ***********Not-Implemented******")
-        return None
+        """Get order book depth for a product"""
+        try:
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product}")
+                return None
+            
+            depth = self.public_client.get_order_book(symbol=product_info['symbol'], limit=level)
+            return depth
+        except Exception as e:
+            log.error(f"Error getting order book: {e}")
+            return None
+    
+    def buy(self, trade_req):
+        """Place a buy order"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return None
+            
+            product = trade_req.product
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product.get_name():
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product.get_name()}")
+                return None
+            
+            symbol = product_info['symbol']
+            quantity = float(trade_req.size)
+            price = float(trade_req.price) if trade_req.price else None
+            
+            # Determine order type
+            order_type = trade_req.type.upper() if hasattr(trade_req, 'type') else 'MARKET'
+            
+            log.info(f"Placing BUY order: {symbol}, quantity: {quantity}, price: {price}, type: {order_type}")
+            
+            # Place order based on type
+            if order_type == 'MARKET':
+                response = self.auth_client.order_market_buy(
+                    symbol=symbol,
+                    quantity=quantity
+                )
+            elif order_type == 'LIMIT':
+                if not price:
+                    log.error("Price required for LIMIT order")
+                    return None
+                response = self.auth_client.order_limit_buy(
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=str(price)
+                )
+            else:
+                log.error(f"Unsupported order type: {order_type}")
+                return None
+            
+            if response:
+                order_id = response.get('orderId')
+                status = response.get('status', 'NEW')
+                executed_qty = float(response.get('executedQty', 0))
+                
+                log.info(f"Buy order placed successfully: {order_id}")
+                
+                # Log to trade logger
+                try:
+                    from db import get_trade_logger
+                    trade_logger = get_trade_logger()
+                    if trade_logger:
+                        order_obj = Order(
+                            order_id=str(order_id),
+                            product_id=product.get_name(),
+                            status=status.lower(),
+                            order_type=order_type.lower(),
+                            side='buy',
+                            request_size=quantity,
+                            filled_size=executed_qty,
+                            price=price or 0
+                        )
+                        trade_logger.log_order_placed(self.name, product.get_name(), order_obj)
+                except Exception as e:
+                    log.warning(f"Failed to log order: {e}")
+                
+                return Order(
+                    order_id=str(order_id),
+                    product_id=product.get_name(),
+                    status=status.lower(),
+                    order_type=order_type.lower(),
+                    side='buy',
+                    request_size=quantity,
+                    filled_size=executed_qty,
+                    remaining_size=quantity - executed_qty,
+                    price=price or float(response.get('price', 0)),
+                    create_time=response.get('transactTime')
+                )
+            
+            return None
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error placing buy order: {e}")
+            return None
+        except BinanceRequestException as e:
+            log.error(f"Binance request error placing buy order: {e}")
+            return None
+        except Exception as e:
+            log.error(f"Error placing buy order: {e}")
+            return None
+    
+    def sell(self, trade_req):
+        """Place a sell order"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return None
+            
+            product = trade_req.product
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product.get_name():
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product.get_name()}")
+                return None
+            
+            symbol = product_info['symbol']
+            quantity = float(trade_req.size)
+            price = float(trade_req.price) if trade_req.price else None
+            
+            # Determine order type
+            order_type = trade_req.type.upper() if hasattr(trade_req, 'type') else 'MARKET'
+            
+            log.info(f"Placing SELL order: {symbol}, quantity: {quantity}, price: {price}, type: {order_type}")
+            
+            # Place order based on type
+            if order_type == 'MARKET':
+                response = self.auth_client.order_market_sell(
+                    symbol=symbol,
+                    quantity=quantity
+                )
+            elif order_type == 'LIMIT':
+                if not price:
+                    log.error("Price required for LIMIT order")
+                    return None
+                response = self.auth_client.order_limit_sell(
+                    symbol=symbol,
+                    quantity=quantity,
+                    price=str(price)
+                )
+            else:
+                log.error(f"Unsupported order type: {order_type}")
+                return None
+            
+            if response:
+                order_id = response.get('orderId')
+                status = response.get('status', 'NEW')
+                executed_qty = float(response.get('executedQty', 0))
+                
+                log.info(f"Sell order placed successfully: {order_id}")
+                
+                # Log to trade logger
+                try:
+                    from db import get_trade_logger
+                    trade_logger = get_trade_logger()
+                    if trade_logger:
+                        order_obj = Order(
+                            order_id=str(order_id),
+                            product_id=product.get_name(),
+                            status=status.lower(),
+                            order_type=order_type.lower(),
+                            side='sell',
+                            request_size=quantity,
+                            filled_size=executed_qty,
+                            price=price or 0
+                        )
+                        trade_logger.log_order_placed(self.name, product.get_name(), order_obj)
+                except Exception as e:
+                    log.warning(f"Failed to log order: {e}")
+                
+                return Order(
+                    order_id=str(order_id),
+                    product_id=product.get_name(),
+                    status=status.lower(),
+                    order_type=order_type.lower(),
+                    side='sell',
+                    request_size=quantity,
+                    filled_size=executed_qty,
+                    remaining_size=quantity - executed_qty,
+                    price=price or float(response.get('price', 0)),
+                    create_time=response.get('transactTime')
+                )
+            
+            return None
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error placing sell order: {e}")
+            return None
+        except BinanceRequestException as e:
+            log.error(f"Binance request error placing sell order: {e}")
+            return None
+        except Exception as e:
+            log.error(f"Error placing sell order: {e}")
+            return None
+    
+    def get_order(self, product_id, order_id):
+        """Get order status"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return None
+            
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return None
+            
+            response = self.auth_client.get_order(
+                symbol=product_info['symbol'],
+                orderId=order_id
+            )
+            
+            if response:
+                return Order(
+                    order_id=str(response.get('orderId')),
+                    product_id=product_id,
+                    status=response.get('status', 'UNKNOWN').lower(),
+                    order_type=response.get('type', 'MARKET').lower(),
+                    side=response.get('side', 'UNKNOWN').lower(),
+                    request_size=float(response.get('origQty', 0)),
+                    filled_size=float(response.get('executedQty', 0)),
+                    remaining_size=float(response.get('origQty', 0)) - float(response.get('executedQty', 0)),
+                    price=float(response.get('price', 0)),
+                    create_time=response.get('time'),
+                    update_time=response.get('updateTime')
+                )
+            
+            return None
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error getting order: {e}")
+            return None
+        except Exception as e:
+            log.error(f"Error getting order: {e}")
+            return None
+    
+    def cancel_order(self, product_id, order_id):
+        """Cancel an order"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return False
+            
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return False
+            
+            log.info(f"Canceling order: {order_id} for {product_id}")
+            
+            response = self.auth_client.cancel_order(
+                symbol=product_info['symbol'],
+                orderId=order_id
+            )
+            
+            if response and response.get('status') == 'CANCELED':
+                log.info(f"Order canceled successfully: {order_id}")
+                return True
+            
+            return False
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error canceling order: {e}")
+            return False
+        except Exception as e:
+            log.error(f"Error canceling order: {e}")
+            return False
+    
+    def cancel_all_orders(self, product_id):
+        """Cancel all open orders for a product"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return False
+            
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return False
+            
+            log.info(f"Canceling all orders for: {product_id}")
+            
+            response = self.auth_client.cancel_open_orders(
+                symbol=product_info['symbol']
+            )
+            
+            log.info(f"Canceled {len(response) if response else 0} orders")
+            return True
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error canceling all orders: {e}")
+            return False
+        except Exception as e:
+            log.error(f"Error canceling all orders: {e}")
+            return False
+    
+    def get_account_info(self):
+        """Get account information"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return None
+            
+            account = self.auth_client.get_account()
+            return account
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error getting account info: {e}")
+            return None
+        except Exception as e:
+            log.error(f"Error getting account info: {e}")
+            return None
+    
+    def get_balance(self, asset):
+        """Get balance for specific asset"""
+        try:
+            account = self.get_account_info()
+            if account and 'balances' in account:
+                for balance in account['balances']:
+                    if balance['asset'] == asset:
+                        return {
+                            'asset': asset,
+                            'free': float(balance['free']),
+                            'locked': float(balance['locked']),
+                            'total': float(balance['free']) + float(balance['locked'])
+                        }
+            return None
+            
+        except Exception as e:
+            log.error(f"Error getting balance: {e}")
+            return None
+    
+    def get_open_orders(self, product_id=None):
+        """Get all open orders"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return []
+            
+            if product_id:
+                product_info = None
+                for p in self.get_products():
+                    if p['id'] == product_id:
+                        product_info = p
+                        break
+                
+                if not product_info:
+                    log.error(f"Product not found: {product_id}")
+                    return []
+                
+                orders = self.auth_client.get_open_orders(symbol=product_info['symbol'])
+            else:
+                orders = self.auth_client.get_open_orders()
+            
+            return orders
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error getting open orders: {e}")
+            return []
+        except Exception as e:
+            log.error(f"Error getting open orders: {e}")
+            return []
+    
+    def get_order_history(self, product_id, limit=500):
+        """Get order history"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return []
+            
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return []
+            
+            orders = self.auth_client.get_all_orders(
+                symbol=product_info['symbol'],
+                limit=limit
+            )
+            
+            return orders
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error getting order history: {e}")
+            return []
+        except Exception as e:
+            log.error(f"Error getting order history: {e}")
+            return []
+    
+    def get_trade_history(self, product_id, limit=500):
+        """Get trade history"""
+        try:
+            if not self.auth_client:
+                log.error("Authenticated client not available")
+                return []
+            
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return []
+            
+            trades = self.auth_client.get_my_trades(
+                symbol=product_info['symbol'],
+                limit=limit
+            )
+            
+            return trades
+            
+        except BinanceAPIException as e:
+            log.error(f"Binance API error getting trade history: {e}")
+            return []
+        except Exception as e:
+            log.error(f"Error getting trade history: {e}")
+            return []
+    
+    def get_ticker(self, product_id):
+        """Get 24h ticker statistics"""
+        try:
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return None
+            
+            ticker = self.public_client.get_ticker(symbol=product_info['symbol'])
+            return ticker
+            
+        except Exception as e:
+            log.error(f"Error getting ticker: {e}")
+            return None
+    
+    def get_order_book_depth(self, product_id, limit=100):
+        """Get order book with depth"""
+        try:
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return None
+            
+            depth = self.public_client.get_order_book(
+                symbol=product_info['symbol'],
+                limit=limit
+            )
+            return depth
+            
+        except Exception as e:
+            log.error(f"Error getting order book depth: {e}")
+            return None
+    
+    def get_recent_trades(self, product_id, limit=500):
+        """Get recent trades"""
+        try:
+            product_info = None
+            for p in self.get_products():
+                if p['id'] == product_id:
+                    product_info = p
+                    break
+            
+            if not product_info:
+                log.error(f"Product not found: {product_id}")
+                return []
+            
+            trades = self.public_client.get_recent_trades(
+                symbol=product_info['symbol'],
+                limit=limit
+            )
+            return trades
+            
+        except Exception as e:
+            log.error(f"Error getting recent trades: {e}")
+            return []
 
 ######### ******** MAIN ****** #########
 if __name__ == '__main__':

@@ -1,0 +1,54 @@
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alertmanager@wolfinch.local'
+  smtp_require_tls: false
+
+# The root route on which each incoming alert enters
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+  
+  routes:
+    # Critical alerts
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      continue: true
+    
+    # Warning alerts
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      continue: true
+
+# Inhibition rules allow to mute a set of alerts given that another alert is firing
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+
+# Receivers configuration
+receivers:
+  - name: 'default-receiver'
+    # Configure your notification channels here
+    # webhook_configs:
+    #   - url: 'http://localhost:5001/webhook'
+  
+  - name: 'critical-alerts'
+    # Add critical alert handlers
+    # email_configs:
+    #   - to: 'critical@example.com'
+    # slack_configs:
+    #   - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+    #     channel: '#critical-alerts'
+  
+  - name: 'warning-alerts'
+    # Add warning alert handlers
+    # email_configs:
+    #   - to: 'warnings@example.com'
