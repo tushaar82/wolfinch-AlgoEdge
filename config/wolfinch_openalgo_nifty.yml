@@ -1,0 +1,87 @@
+# Wolfinch Configuration for OpenAlgo NSE FNO Trading
+# This config demonstrates trading NIFTY options using OpenAlgo broker
+
+exchanges:
+  - 'openalgo':
+      role: 'primary'
+      config: 'config/openalgo.yml'
+      products:
+        - 'NFO:NIFTY-24JAN25-22000-CE':
+            active: true
+            # Max capital to deploy for this product
+            fund_max_liquidity: 100000
+            # Max capital per single trade
+            fund_max_per_buy_value: 10000
+            # Max lots per trade (will be converted to quantity using lot size)
+            asset_max_per_trade_size: 5
+            # Min lots per trade
+            asset_min_per_trade_size: 1
+
+            # Stop Loss Configuration
+            stop_loss:
+              enabled: true
+              kind: 'trailing'  # simple|trailing|ATR|strategy
+              rate: 5           # percentage for simple/trailing
+              atr_multiplier: 2 # for ATR-based SL
+
+            # Take Profit Configuration
+            take_profit:
+              enabled: true
+              rate: 10  # percentage
+
+            # Risk Management
+            risk_management:
+              enabled: true
+              max_daily_loss: 5000        # Max loss per day in INR
+              max_daily_loss_percent: 5   # Max loss as % of capital
+              max_position_size: 10       # Max lots per position
+              max_open_positions: 3       # Max concurrent positions
+
+            # Strategy Configuration
+            decision:
+              model: simple
+              config:
+                strategy: EMA_RSI_MTF  # Multi-timeframe EMA + RSI
+                params:
+                  period: 100
+                  ema_fast: 9
+                  ema_medium: 21
+                  ema_slow: 50
+                  rsi_period: 14
+                  rsi_overbought: 70
+                  rsi_oversold: 30
+                  higher_timeframe: 900  # 15min for confirmation
+
+# Candle interval (in seconds)
+# 300 = 5 minutes, 900 = 15 minutes, 3600 = 1 hour
+candle_interval: 300
+
+# Historical data backfill
+backfill:
+  enabled: true
+  period: 30  # days to backfill
+
+# Simulation/Backtesting
+simulator:
+  enabled: false
+  backtesting: false
+  start_date: '2024-01-01'
+  end_date: '2024-01-31'
+
+# Web UI Configuration
+ui:
+  enabled: true
+  port: 8080
+  host: '0.0.0.0'
+
+# Database Configuration
+database:
+  type: 'influxdb'  # influxdb|sqlite|mongodb
+  config: 'config/cache_db.yml'
+
+# Logging Configuration
+logging:
+  level: 'INFO'  # DEBUG|INFO|WARNING|ERROR|CRITICAL
+  file: 'logs/wolfinch.log'
+  max_size: 10485760  # 10MB
+  backup_count: 5

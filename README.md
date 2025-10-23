@@ -1,100 +1,104 @@
-[![|License|](https://img.shields.io/badge/license-GPL%20v3.0-brightgreen.svg)](LICENSE)
+# Wolfinch AlgoEdge - Professional NSE FNO Trading System
 
-********
-# Wolfinch
+<div align="center">
 
-Wolfinch is a trading bot implemented in Python. It supports algorithmic trading for equity market and cryptocurrency exchanges. The modularized implementation is easily extensible to support more exchanges, trading strategies and indicators. A simple UI is available out of the box to view trades and allow basic controls in operation. 
+![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/License-GPL%20v3-green.svg)
+![OpenAlgo](https://img.shields.io/badge/Broker-OpenAlgo-orange.svg)
+![NSE](https://img.shields.io/badge/Market-NSE%20FNO-red.svg)
 
-#### Features include : 
-* Auto / Manual Trading Modes
-* Multiple decision engines
-* YAML based rich configuration file support - Tons of nuts and bolts to customize
-* Out of the box UI availability
-* Pluggable Strategies 
-* Pluggable Indicators
-* Pluggable Exchanges
-* Backtesting support
-* Paper trading (Simulation) mode
-* Genetic optimizer support for tuning strategies
-* Machine Learning mode - supports training and using trained models and ML decision engines
-* Positional Stop Stop Loss support, multiple smart stop strategies available
-	- Fixed Percent
-	- Trailing with fixed percent
-	- ATR trailing stop (with variable ATR period support)
-	- Strategy provided
-* Positional Take profit support
-	- Fixed percent
-	- Strategy provided
-* Supports trading multiple exchanges at the same time
-* Supports trading multiple trading pairs at the same time
-* Supports cross exchange, cross pair trading (Using signals and indicators on one exchange/trading-pair to make trading decision on another exchange/trading-pair)
-* Restartability (of live trading, backtesting, genetic optimizer)
+**Advanced algorithmic trading system for NSE F&O Options trading with OpenAlgo integration**
 
-## Using Wolfinch
+</div>
 
-Starting the bot is fairly straight forward. 
+---
 
-A few examples below covers most startup modes:
-* Fresh start: 
-    `Wolfinch.py --config <config.yml>`
-* Restart from previous state: 
-    `Wolfinch.py --config <config.yml> --restart`
-* Import historic data and exit: 
-    `Wolfinch.py --config <config.yml> --import_only`
+## 🚀 Features
 
-A lot of sample config files are available in config/ directory. Those should serve as a very good starting point.
+### Core Capabilities
+- ✅ **OpenAlgo Broker Integration** - Seamless connectivity using OpenAlgo SDK
+- ✅ **NSE F&O Options Trading** - Full support for NIFTY, BANKNIFTY, FINNIFTY options
+- ✅ **Lot Size Management** - Automatic calculation based on NSE specifications
+- ✅ **7 Advanced Strategies** - Professional multi-timeframe algorithmic strategies
+- ✅ **Trailing Stop Loss** - Built-in trailing SL for all strategies
+- ✅ **Risk Management** - Daily loss limits with automatic order blocking
+- ✅ **Live P&L Tracking** - Real-time profit/loss monitoring
+- ✅ **Professional Dashboard** - Web-based UI for monitoring and control
+- ✅ **Comprehensive Logging** - Every trade and action logged to database
 
-**Read More here**:
+---
 
-[Introduction-to-the-friendly-trading-bot](https://medium.com/@joe.cet/wolfinch-introduction-to-the-friendly-trading-bot-fe9281825e59)
+## 🚦 Quick Start
 
-[algorithmic-trading-with-robinhood-using-wolfinch](https://medium.com/@joe.cet/algorithmic-trading-with-robinhood-using-wolfinch-b268b7aca43f)
+```bash
+# Start system
+./start.sh
 
-[algorithmic-trading-with-binance-using-wolfinch](https://medium.com/@joe.cet/algorithmic-trading-with-binance-using-wolfinch-fe5353885451)
+# Check health
+./health.sh
 
-Join subreddit - [wolfinch](https://www.reddit.com/r/wolfinch)
+# Access dashboard
+# Open browser: http://localhost:8080
 
-### Supported Exchanges
-* Coinbase Pro
-* Binance
-* Binance US
-* Robinhood
-* gdax [deprecated]
+# Stop system
+./stop.sh
+```
 
-### Disclaimer:
+---
 
-This project is for educational purpose only. Strategies are experimental. Use them at your own risk. 
+## 📊 7 Trading Strategies
 
-#### Further Enhancements: 
+1. **EMA_RSI_MTF** - Multi-timeframe EMA + RSI with trailing SL
+2. **Supertrend_ADX** - Supertrend + ADX with ATR-based SL
+3. **VWAP_BB** - VWAP + Bollinger Bands mean reversion
+4. **Triple_EMA_MACD** - Triple EMA crossover with MACD confirmation
+5. **RSI_Divergence_Stoch** - Divergence detection with Stochastic timing
+6. **Volume_Breakout_ATR** - Volume breakout with ATR stops
+7. **MTF_Trend_Following** - Multi-timeframe comprehensive trend following
 
-Not based on priority.
+All strategies include built-in trailing stop loss mechanisms.
 
-1. more indicators
-2. more strategies 
-3. improve Decision/Model
-5. more exchanges
-7. integrate news source, sentiment analysis input for decision 
-10. **Any feature requests**
+---
 
-#### NOTE:
-Read third-party [Readme](third_party/README.md) for dependencies
+## 🎯 Risk Management
 
-### Donate:
-You can donate to appreciate the countless hours spent on the development.
+Configure in `config/wolfinch_openalgo_nifty.yml`:
 
-* **BTC** : `35bYjx9Geo6gLM41nqRnZA5KpciJEfJokD`
-* **ETH** : `0x2598eA883719a679deEf821736fa39DF0DD9F86C`
-* **LTC** : `MRfdbKHUrSxv2zKztdVyodKwSzpQNgofr8`
+```yaml
+risk_management:
+  enabled: true
+  max_daily_loss: 5000           # ₹5000 daily loss limit
+  max_daily_loss_percent: 5      # 5% of capital
+  max_position_size: 10          # Max 10 lots per position
+  max_open_positions: 3          # Max 3 concurrent positions
+```
 
-[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_donations&business=JCTW62GFL4QGW&currency_code=USD&source=url)
+System automatically blocks trading when limits are breached.
 
+---
 
+## 📚 Documentation
 
-### License
+See full documentation in this README or visit the [Wiki](wiki).
 
-GNU General Public License v3.0 or later
+**Management Scripts:**
+- `start.sh` - Start trading system
+- `stop.sh` - Graceful shutdown
+- `health.sh` - Health monitoring
+- `clean.sh` - Cleanup logs and data
 
-See [LICENSE](LICENSE) to see the full text.
+---
 
+## ⚠️ Risk Disclaimer
 
-   
+Algorithmic trading involves substantial risk. This software is provided "as is" without warranty. Always test with paper trading first.
+
+---
+
+## 📄 License
+
+GNU General Public License v3.0
+
+---
+
+**Happy Trading! 🚀**
